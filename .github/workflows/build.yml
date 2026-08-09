@@ -15,9 +15,13 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     env:
       # Skip code signing on all platforms for now; artifacts are unsigned.
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      # electron-builder publishes to the GitHub Release using this token.
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - uses: actions/checkout@v4
