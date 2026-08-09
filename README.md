@@ -265,16 +265,16 @@ A polished interface can be one of Glassy's biggest advantages.
 
 ### Phase 1 — Core Scanner
 
-* [ ] Local network detection
-* [ ] IPv4 scanning
-* [ ] ICMP discovery
-* [ ] ARP discovery
-* [ ] Hostname resolution
-* [ ] MAC address detection
-* [ ] MAC vendor lookup
-* [ ] Multi-threaded scanning
-* [ ] Scan cancellation
-* [ ] Real-time results
+* [x] Local network detection
+* [x] IPv4 scanning
+* [x] ICMP discovery
+* [x] ARP discovery
+* [x] Hostname resolution
+* [x] MAC address detection
+* [x] MAC vendor lookup
+* [x] Multi-threaded scanning
+* [x] Scan cancellation
+* [x] Real-time results
 
 ### Phase 2 — Device Intelligence
 

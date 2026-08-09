@@ -1,0 +1,65 @@
+# Builds installers for all three platforms on every tag (and on demand),
+# so macOS/Linux artifacts exist even though development happens on Windows.
+# Installers are published to the GitHub Release for the pushed tag.
+name: Build installers
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    env:
+      # Skip code signing on all platforms for now; artifacts are unsigned.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # npm ci runs postinstall scripts on GitHub runners, but ensure the
+      # Electron binary exists so packaging can never fail on a partial install.
+      - name: Ensure Electron binary
+        run: node node_modules/electron/install.js
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build and publish Windows installers
+        if: matrix.os == 'windows-latest'
+        run: npm run dist:win -- --publish always
+
+      - name: Build and publish Linux installers (AppImage + deb)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run build && npx electron-builder --linux AppImage deb --publish always
+
+      - name: Build and publish macOS installers
+        if: matrix.os == 'macos-latest'
+        run: npm run build && npx electron-builder --mac --publish always
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: glassy-ip-scanner-${{ matrix.os }}
+          if-no-files-found: warn
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.zip
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.blockmap
+            dist/latest*.yml

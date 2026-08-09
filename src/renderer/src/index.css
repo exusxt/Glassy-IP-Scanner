@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --glassy-bg: #0b1020;
+  --glassy-panel: #111a30;
+  --glassy-panel2: #0e1526;
+  --glassy-deep: #070b16;
+  --glassy-border: #223052;
+  --glassy-borderlight: #2e3f6b;
+  --glassy-accent: #38bdf8;
+  --glassy-accent2: #a78bfa;
+  --glassy-good: #34d399;
+  --glassy-warn: #fbbf24;
+  --glassy-bad: #f87171;
+  --glassy-muted: #8b98b8;
+  --glassy-text: #e2e8f0;
+  --glassy-glow: 0 0 24px rgba(56, 189, 248, 0.25);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-glassy-bg text-glassy-text antialiased;
+  background-image: radial-gradient(
+      1200px 600px at 20% -10%,
+      color-mix(in srgb, var(--glassy-accent) 14%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(1000px 500px at 90% 110%, color-mix(in srgb, var(--glassy-accent2) 14%, transparent), transparent 60%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--glassy-accent) 35%, transparent);
+}
+
+[data-theme^='gallery'] [class*='bg-glassy-'] {
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+}
+
+/* Glassy form fields: translucent fill, frosted blur and a subtle top
+   highlight so inputs read as glass regardless of the active theme. */
+.glass-input {
+  background-color: color-mix(in srgb, var(--glassy-panel2) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--glassy-borderlight) 75%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    0 1px 8px rgba(0, 0, 0, 0.25);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.glass-input:focus {
+  border-color: color-mix(in srgb, var(--glassy-accent) 80%, transparent);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+    0 0 0 3px color-mix(in srgb, var(--glassy-accent) 22%, transparent);
+  outline: none;
+}
+
+/* Opaque table header fill so rows scrolling underneath never show through
+   the sticky column titles (a translucent glass fill is not enough here). */
+.table-header {
+  background-color: color-mix(in srgb, var(--glassy-panel) 92%, var(--glassy-deep));
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--glassy-borderlight) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--glassy-borderlight);
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 18px color-mix(in srgb, var(--glassy-accent) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 30px color-mix(in srgb, var(--glassy-accent) 60%, transparent);
+  }
+}
+
+.animate-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes glassy-marquee {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.animate-marquee {
+  background-size: 200% 200%;
+  animation: glassy-marquee 3s linear infinite;
+}
+
+@keyframes glassy-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.animate-shimmer {
+  animation: glassy-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes glassy-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float {
+  animation: glassy-float 2.2s ease-in-out infinite;
+}
