@@ -5,6 +5,12 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.4] - 2026-08-10
+
+### Fixed
+
+- Portable build no longer offers in-app updates: it was downloading and running the NSIS installer instead of replacing the portable exe. The updater now reports that updates are unsupported in the portable build.
+
 ## [v0.1.3] - 2026-08-10
 
 ### Fixed
