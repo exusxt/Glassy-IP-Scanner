@@ -1,34 +1,41 @@
 # Builds installers for all three platforms on every tag (and on demand),
 # so macOS/Linux artifacts exist even though development happens on Windows.
-# Installers are published to the GitHub Release for the pushed tag.
-name: Build installers
+# Release notes come from CHANGELOG.md: the section matching the tag is used
+# as the GitHub release body, and installers are published to that release.
+name: Build & Release
 
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
+        include:
+          - os: ubuntu-latest
+            args: --linux
+          - os: macos-latest
+            args: --mac
+          - os: windows-latest
+            args: --win
     env:
       # Skip code signing on all platforms for now; artifacts are unsigned.
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      # electron-builder publishes to the GitHub Release using this token.
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -42,17 +49,39 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Build and publish Windows installers
-        if: matrix.os == 'windows-latest'
-        run: npm run dist:win -- --publish always
+      - name: Build renderer/main
+        run: npm run build
 
-      - name: Build and publish Linux installers (AppImage + deb)
+      - name: Install Linux packaging tools
         if: matrix.os == 'ubuntu-latest'
-        run: npm run build && npx electron-builder --linux AppImage deb --publish always
+        run: sudo apt-get update && sudo apt-get install -y libarchive-tools
 
-      - name: Build and publish macOS installers
-        if: matrix.os == 'macos-latest'
-        run: npm run build && npx electron-builder --mac --publish always
+      - name: Create/update GitHub release (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes_file=$(mktemp)
+          awk -v tag="$GITHUB_REF_NAME" '
+            /^## \[/ {
+              if (f) exit
+              if (index($0, "## [" tag "]") == 1) f = 1
+            }
+            f { print }
+          ' CHANGELOG.md > "$notes_file"
+          if [ -s "$notes_file" ]; then
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$notes_file" \
+              || gh release edit "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$notes_file"
+          else
+            gh release create "$GITHUB_REF_NAME" --generate-notes || true
+          fi
+          rm -f "$notes_file"
+
+      - name: Package and publish installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npx electron-builder ${{ matrix.args }} --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
