@@ -17,6 +17,9 @@ let state: UpdateState = {
   autoUpdate: getSettings().autoUpdate
 }
 
+/** True when running from the portable Windows exe (no installer, no update). */
+const IS_PORTABLE = process.platform === 'win32' && Boolean(process.env.PORTABLE_EXECUTABLE_FILE)
+
 function pushState(): void {
   mainWindow?.webContents.send('update:state', state)
 }
@@ -32,6 +35,13 @@ function errorMessage(err: unknown): string {
 
 async function checkForUpdates(): Promise<void> {
   if (!app.isPackaged) return
+  if (IS_PORTABLE) {
+    // The Windows feed points at the NSIS installer, which cannot be applied to
+    // a portable build — the update would silently install the app instead of
+    // replacing the portable exe. Portable users grab the new exe manually.
+    setPhase('unsupported')
+    return
+  }
   try {
     await autoUpdater.checkForUpdates()
   } catch (err) {
@@ -40,6 +50,7 @@ async function checkForUpdates(): Promise<void> {
 }
 
 async function downloadUpdate(): Promise<void> {
+  if (IS_PORTABLE) return
   try {
     await autoUpdater.downloadUpdate()
   } catch (err) {
@@ -53,6 +64,7 @@ export function initUpdater(win: BrowserWindow): void {
   ipcMain.handle('update:check', () => checkForUpdates())
   ipcMain.handle('update:download', () => downloadUpdate())
   ipcMain.handle('update:install', () => {
+    if (IS_PORTABLE) return
     autoUpdater.quitAndInstall(false, true)
   })
   ipcMain.handle('update:skip', (_e, version: string) => {
@@ -72,6 +84,13 @@ export function initUpdater(win: BrowserWindow): void {
   })
 
   if (!app.isPackaged) return
+
+  // Portable builds never check, download or install: the updater machinery and
+  // the startup auto-check only apply to installed (NSIS) builds.
+  if (IS_PORTABLE) {
+    setPhase('unsupported')
+    return
+  }
 
   // Never download on its own: even in auto-update mode we call downloadUpdate()
   // explicitly below, so the user's choice is always honored.

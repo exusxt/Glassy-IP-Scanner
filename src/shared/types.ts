@@ -103,6 +103,7 @@ export type UpdatePhase =
   | 'downloading'
   | 'downloaded'
   | 'not-available'
+  | 'unsupported'
   | 'error'
 
 /** Snapshot of the updater, pushed to the renderer on every transition. */
