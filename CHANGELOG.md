@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Portable build no longer offers in-app updates: it was downloading and running the NSIS installer instead of replacing the portable exe. The updater now reports that updates are unsupported in the portable build.
+- Portable build now fully supports in-app updates: it downloads the matching portable exe from the latest GitHub release and swaps it in on restart, instead of downloading and running the NSIS installer
 
 ## [v0.1.3] - 2026-08-10
 

@@ -19,8 +19,6 @@ function statusLabel(state: UpdateState): { text: string; tone: 'default' | 'goo
       return { text: `${state.version} downloaded — restart to install`, tone: 'good' }
     case 'not-available':
       return { text: "You're up to date", tone: 'good' }
-    case 'unsupported':
-      return { text: 'Updates not supported in the portable build', tone: 'warn' }
     case 'error':
       return state.error ? { text: `Update check failed: ${state.error}`, tone: 'warn' } : { text: 'Update check failed', tone: 'warn' }
     default:

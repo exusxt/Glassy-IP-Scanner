@@ -43,9 +43,6 @@ export function UpdateDialog({
     } else if (state.phase === 'error' && manual) {
       setToast(`Update check failed: ${state.error ?? 'unknown error'}`)
       onManualDone()
-    } else if (state.phase === 'unsupported' && manual) {
-      setToast('Updates are not supported in the portable build — download the latest release from GitHub')
-      onManualDone()
     }
   }, [state.phase, state.error, manual, onManualDone])
 
@@ -149,7 +146,7 @@ export function UpdateDialog({
 
       {toast ? (
         <div className="fixed bottom-6 right-6 z-[70] flex max-w-xs items-start gap-3 rounded-xl border border-glassy-border bg-glassy-panel/95 p-4 shadow-2xl shadow-black/60 backdrop-blur-xl">
-          {state.phase === 'error' || state.phase === 'unsupported' ? (
+          {state.phase === 'error' ? (
             <AlertCircle className="h-4 w-4 shrink-0 text-glassy-warn" />
           ) : (
             <CheckCircle2 className="h-4 w-4 shrink-0 text-glassy-good" />
@@ -157,7 +154,7 @@ export function UpdateDialog({
           <p
             className={cn(
               'min-w-0 text-sm',
-              state.phase === 'error' || state.phase === 'unsupported' ? 'text-glassy-warn' : 'text-glassy-text'
+              state.phase === 'error' ? 'text-glassy-warn' : 'text-glassy-text'
             )}
           >
             {toast}
