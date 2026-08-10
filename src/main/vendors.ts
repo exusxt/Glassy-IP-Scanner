@@ -7,10 +7,21 @@
 
 import ouiData from './oui-data.txt?raw'
 
-const FULL_OUI = new Map<string, string>()
+// IEEE assigns 24-bit (MA-L), 28-bit (MA-M) and 36-bit (MA-S) blocks, so
+// prefixes are 6, 7 or 9 hex digits. Store them bucketed by length so the
+// longest (most specific) prefix wins.
+const FULL_OUI = new Map<number, Map<string, string>>()
 for (const line of ouiData.split('\n')) {
-  const match = /^([0-9A-F]{6})[ \t]+(.+)$/.exec(line)
-  if (match) FULL_OUI.set(match[1], match[2])
+  const match = /^([0-9A-F]{6}(?:[0-9A-F]{1,3})?)[ \t]+(.+)$/.exec(line)
+  if (match) {
+    const prefix = match[1]
+    let bucket = FULL_OUI.get(prefix.length)
+    if (!bucket) {
+      bucket = new Map<string, string>()
+      FULL_OUI.set(prefix.length, bucket)
+    }
+    bucket.set(prefix, match[2].trim())
+  }
 }
 
 const OUI: Record<string, string> = {
@@ -722,12 +733,27 @@ export function normalizeMac(mac: string): string {
 
 /**
  * Looks up the manufacturer for a MAC address using the bundled OUI database,
- * falling back to the curated short-name table.
+ * falling back to the curated short-name table. Uses the longest matching
+ * IEEE prefix (MA-S 36-bit, MA-M 28-bit, then MA-L 24-bit).
  * Returns null when the address is unparseable or not in either table.
  */
 export function lookupVendor(mac: string | null | undefined): string | null {
   if (!mac) return null
-  const oui = normalizeMac(mac).slice(0, 6)
-  if (oui.length !== 6) return null
-  return FULL_OUI.get(oui) ?? OUI[oui] ?? null
+  const normalized = normalizeMac(mac)
+  if (normalized.length !== 12) return null
+
+  if (normalized === 'FFFFFFFFFFFF') return 'Broadcast'
+  const firstByte = Number.parseInt(normalized.slice(0, 2), 16)
+  if (firstByte & 0x01) return 'Multicast'
+  if (firstByte & 0x02) return 'Locally administered'
+
+  for (const len of [9, 7, 6]) {
+    const bucket = FULL_OUI.get(len)
+    if (bucket) {
+      const vendor = bucket.get(normalized.slice(0, len))
+      if (vendor) return vendor
+    }
+  }
+
+  return OUI[normalized.slice(0, 6)] ?? null
 }
