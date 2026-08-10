@@ -5,6 +5,13 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.6] - 2026-08-11
+
+### Fixed
+
+- Portable self-update now works exactly like the SC64 SD Card Builder: the update check goes through the github.com web redirect (no GitHub API rate limit), the new exe downloads to the temp folder, and it is swapped over the running exe by a hidden helper — no console window flashes and the app's own folder no longer needs to be writable while running
+- Portable update install no longer deletes the old exe first; it moves the new build in place with a retry loop, then relaunches
+
 ## [v0.1.5] - 2026-08-10
 
 ### Added

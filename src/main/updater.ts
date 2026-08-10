@@ -4,15 +4,16 @@
 // updates" in Settings makes it download silently and install on app quit.
 //
 // Installed (NSIS) builds use electron-updater. Portable builds cannot run the
-// NSIS installer, so they drive their own flow: they fetch the latest GitHub
-// release, download the matching portable exe next to the running one and, on
-// install, swap it in via a small helper after the app exits.
+// NSIS installer, so they drive their own flow: they resolve the latest version
+// through the github.com web endpoint (no API rate limit), download the matching
+// portable exe into the temp dir and, on install, swap it over the running exe
+// via a hidden detached helper once this process exits.
 
 import { app, BrowserWindow, ipcMain, net } from 'electron'
 import { autoUpdater, type UpdateInfo } from 'electron-updater'
 import { createWriteStream, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import type { AppSettings, UpdateState } from '../shared/types'
 import { getSettings, setSettings } from './settings'
 
@@ -29,7 +30,7 @@ let state: UpdateState = {
 const IS_PORTABLE = process.platform === 'win32' && Boolean(process.env.PORTABLE_EXECUTABLE_FILE)
 
 /** Release being fetched for a portable self-update. */
-let portableTarget: { version: string; name: string; url: string } | null = null
+let portableTarget: { version: string; url: string } | null = null
 
 function pushState(): void {
   mainWindow?.webContents.send('update:state', state)
@@ -73,21 +74,16 @@ async function checkPortable(): Promise<void> {
   try {
     const cfg = publishRepo()
     if (!cfg) throw new Error('update feed not configured')
-    const res = await net.fetch(`https://api.github.com/repos/${cfg.owner}/${cfg.repo}/releases/latest`, {
-      headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Glassy-IP-Scanner' }
+    // Resolve the latest release through the github.com web endpoint instead of
+    // the API: /releases/latest redirects to /releases/tag/<tag>, and the final
+    // URL reveals the tag. Unlike the API this has no unauthenticated rate
+    // limit, so frequent checks never start failing on shared IPs.
+    const res = await net.fetch(`https://github.com/${cfg.owner}/${cfg.repo}/releases/latest`, {
+      redirect: 'follow',
+      headers: { 'User-Agent': 'Glassy-IP-Scanner' }
     })
-    if (!res.ok) {
-      if (res.status === 404) {
-        setPhase('not-available')
-        return
-      }
-      throw new Error(`update check failed (HTTP ${res.status})`)
-    }
-    const release = (await res.json()) as {
-      tag_name?: string
-      assets?: Array<{ name: string; browser_download_url: string }>
-    }
-    const tag = String(release.tag_name ?? '').replace(/^v/i, '')
+    if (!res.ok) throw new Error(`update check failed (HTTP ${res.status})`)
+    const tag = /\/releases\/tag\/([^/?#]+)/.exec(res.url)?.[1] ?? ''
     if (!tag || !semverGt(tag, app.getVersion())) {
       setPhase('not-available')
       return
@@ -96,14 +92,11 @@ async function checkPortable(): Promise<void> {
       setPhase('idle')
       return
     }
-    // The portable artifact is the release exe without the "-Setup-" suffix.
+    // The portable artifact name is fixed by electron-builder, so the download
+    // URL can be constructed without listing the release's assets.
     const name = `Glassy-IP-Scanner-${tag}.exe`
-    const asset = (release.assets ?? []).find((a) => a.name === name)
-    if (!asset) {
-      setPhase('not-available')
-      return
-    }
-    portableTarget = { version: tag, name: asset.name, url: asset.browser_download_url }
+    const url = `https://github.com/${cfg.owner}/${cfg.repo}/releases/latest/download/${name}`
+    portableTarget = { version: tag, url }
     setPhase('available', { version: tag, progress: 0 })
     if (state.autoUpdate) {
       void downloadUpdate()
@@ -115,14 +108,11 @@ async function checkPortable(): Promise<void> {
 
 async function downloadPortable(): Promise<void> {
   if (!portableTarget) return
-  const exePath = process.env.PORTABLE_EXECUTABLE_FILE
-  if (!exePath) {
-    setPhase('error', { error: 'not running from a portable executable' })
-    return
-  }
   setPhase('downloading', { version: portableTarget.version, progress: 0 })
-  const dir = dirname(exePath)
-  const finalPath = join(dir, portableTarget.name)
+  // The new exe is downloaded to the temp dir so the update works even when the
+  // folder holding the running portable exe is not writable. It is moved over
+  // the running exe only when the user confirms the install (installPortable).
+  const finalPath = join(app.getPath('temp'), `glassy-update-${portableTarget.version}.exe`)
   const partPath = `${finalPath}.part`
   try {
     const res = await net.fetch(portableTarget.url)
@@ -174,26 +164,31 @@ function installPortable(): void {
   if (!portableTarget) return
   const exePath = process.env.PORTABLE_EXECUTABLE_FILE
   if (!exePath) return
-  const targetPath = join(dirname(exePath), portableTarget.name)
-  if (!existsSync(targetPath)) return
-  // A detached helper waits for this process to exit, removes the old portable
-  // exe and launches the new one (the running exe cannot be replaced in place).
+  const src = join(app.getPath('temp'), `glassy-update-${portableTarget.version}.exe`)
+  if (!existsSync(src)) return
+  // The downloaded exe cannot overwrite the running one directly (it is locked).
+  // Run a small detached batch file that retries the move until the app exits
+  // and the file unlocks, then relaunches from the same path. windowsHide keeps
+  // the swap silent so no console window flashes.
   const helper = join(app.getPath('temp'), `glassy-update-${process.pid}.bat`)
   const lines = [
     '@echo off',
-    ':wait',
-    `tasklist /FI "PID eq ${process.pid}" 2>nul | find "${process.pid}" >nul`,
-    'if not errorlevel 1 (',
-    '  ping 127.0.0.1 -n 2 >nul',
-    '  goto wait',
+    'set n=0',
+    ':loop',
+    'set /a n+=1',
+    'if %n% gtr 60 goto relaunch',
+    `move /y "${src}" "${exePath}" >nul 2>&1`,
+    'if errorlevel 1 (',
+    '  ping -n 2 127.0.0.1 >nul',
+    '  goto loop',
     ')',
-    `del /f /q "${exePath}"`,
-    `start "" "${targetPath}"`,
+    ':relaunch',
+    `start "" "${exePath}"`,
     `del /f /q "${helper}"`
   ]
   writeFileSync(helper, lines.join('\r\n'), 'utf8')
-  spawn('cmd.exe', ['/c', helper], { detached: true, stdio: 'ignore' }).unref()
-  app.quit()
+  spawn('cmd.exe', ['/c', helper], { detached: true, stdio: 'ignore', windowsHide: true }).unref()
+  app.exit(0)
 }
 
 async function checkForUpdates(): Promise<void> {
