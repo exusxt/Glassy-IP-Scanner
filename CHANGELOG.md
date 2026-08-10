@@ -5,6 +5,14 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.5] - 2026-08-10
+
+### Added
+
+- mDNS reverse (PTR) lookup for hostnames on Windows/macOS — names now appear for devices that never answer NetBIOS or classic reverse DNS (NAS, smart-home, Apple and similar gear)
+- The scanner now shows the local machine's own MAC address
+- Fresh ARP lookup per host, so MACs appear for devices that only enter the ARP cache during the scan
+
 ## [v0.1.4] - 2026-08-10
 
 ### Fixed

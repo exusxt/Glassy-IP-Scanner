@@ -13,6 +13,7 @@
  */
 
 import { execFile } from 'node:child_process'
+import dgram from 'node:dgram'
 import dns from 'node:dns'
 import { EventEmitter } from 'node:events'
 import net from 'node:net'
@@ -224,6 +225,160 @@ function reverseDns(ip: string, timeoutMs: number, signal: AbortSignal): Promise
   })
 }
 
+// ---------------------------------------------------------------------------
+// DNS packet helpers (for the built-in mDNS reverse lookup below)
+// ---------------------------------------------------------------------------
+
+/** Appends a DNS name (length-prefixed labels) to a buffer. */
+function appendDnsName(buf: Buffer, name: string): Buffer {
+  for (const label of name.split('.')) {
+    if (!label) continue
+    buf = Buffer.concat([buf, Buffer.from([label.length]), Buffer.from(label, 'latin1')])
+  }
+  return Buffer.concat([buf, Buffer.from([0])])
+}
+
+/** Decodes a possibly-compressed DNS name; `next` is the offset past it. */
+function readDnsName(buf: Buffer, start: number): { name: string; next: number } | null {
+  let offset = start
+  let name = ''
+  let next = -1
+  let jumps = 0
+  while (offset < buf.length && jumps++ < 64) {
+    const len = buf[offset]
+    if (len === 0) {
+      if (next < 0) next = offset + 1
+      return { name, next }
+    }
+    if ((len & 0xc0) === 0xc0) {
+      if (offset + 1 >= buf.length) return null
+      if (next < 0) next = offset + 2
+      offset = ((len & 0x3f) << 8) | buf[offset + 1]
+      continue
+    }
+    offset++
+    if (offset + len > buf.length) return null
+    name += buf.toString('latin1', offset, offset + len) + '.'
+    offset += len
+  }
+  return null
+}
+
+/** Builds an mDNS PTR query for the reverse name of `ip`. */
+function buildMDnsPtrQuery(ip: string): Buffer {
+  const header = Buffer.alloc(12)
+  header.writeUInt16BE(0, 0) // mDNS uses id 0 for legacy multicast queries
+  header.writeUInt16BE(0x0000, 2)
+  header.writeUInt16BE(1, 4)
+  const qname = `${ip.split('.').reverse().join('.')}.in-addr.arpa`
+  let body = appendDnsName(Buffer.alloc(0), qname)
+  const qtail = Buffer.alloc(4)
+  qtail.writeUInt16BE(12, 0) // PTR
+  qtail.writeUInt16BE(1, 2) // IN
+  body = Buffer.concat([body, qtail])
+  return Buffer.concat([header, body])
+}
+
+/** Returns the name of the first question in a DNS/mDNS message. */
+function parseQuestionName(msg: Buffer): string | null {
+  if (msg.length < 12) return null
+  const res = readDnsName(msg, 12)
+  return res ? res.name.replace(/\.$/, '') : null
+}
+
+/** Returns the first PTR record (hostname) in a DNS/mDNS response. */
+function parsePtrAnswer(msg: Buffer): string | null {
+  if (msg.length < 12) return null
+  const qdcount = msg.readUInt16BE(4)
+  const ancount = msg.readUInt16BE(6)
+  let offset = 12
+  for (let i = 0; i < qdcount; i++) {
+    const res = readDnsName(msg, offset)
+    if (!res) return null
+    offset = res.next + 4
+  }
+  for (let i = 0; i < ancount; i++) {
+    const res = readDnsName(msg, offset)
+    if (!res) return null
+    const type = msg.readUInt16BE(res.next)
+    const rdlength = msg.readUInt16BE(res.next + 8)
+    const rdata = res.next + 10
+    if (type === 12) {
+      const ptr = readDnsName(msg, rdata)
+      if (ptr && ptr.name) return ptr.name.replace(/\.$/, '')
+    }
+    offset = rdata + rdlength
+  }
+  return null
+}
+
+/**
+ * Best-effort mDNS reverse (PTR) lookup for `ip` via the standard mDNS
+ * multicast group. Many LAN devices that never answer NetBIOS or classic
+ * reverse-DNS (AVM routers, repeaters, smart-home and Apple gear) do answer
+ * mDNS. Returns null on timeout, network failure or firewall blocks.
+ */
+function mDnsReverse(ip: string, timeoutMs: number, signal: AbortSignal): Promise<string | null> {
+  return new Promise((resolve) => {
+    const socket = dgram.createSocket('udp4')
+    const reverseName = `${ip.split('.').reverse().join('.')}.in-addr.arpa`
+    let done = false
+    const finish = (v: string | null): void => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      signal.removeEventListener('abort', onAbort)
+      try {
+        socket.close()
+      } catch {
+        // ignore close errors
+      }
+      resolve(v)
+    }
+    const timer = setTimeout(() => finish(null), timeoutMs)
+    const onAbort = (): void => finish(null)
+    signal.addEventListener('abort', onAbort, { once: true })
+    socket.on('error', () => finish(null))
+    socket.on('message', (msg) => {
+      const question = parseQuestionName(msg)
+      if (question !== null && question !== reverseName) return
+      const name = parsePtrAnswer(msg)
+      if (name) finish(name.replace(/\.local$/i, ''))
+    })
+    socket.bind(0, () => {
+      try {
+        socket.setMulticastTTL(1)
+        socket.addMembership('224.0.0.251')
+      } catch {
+        // membership errors are non-fatal; unicast replies still arrive
+      }
+      socket.send(buildMDnsPtrQuery(ip), 5353, '224.0.0.251', (err) => {
+        if (err) finish(null)
+      })
+    })
+  })
+}
+
+/** Fresh ARP lookup for one address; used after a probe reveals a new host. */
+async function arpLookup(ip: string): Promise<string | null> {
+  if (process.platform === 'win32') {
+    const out = await runCmd('arp', ['-a', ip], 3000)
+    const m = /(\d{1,3}(?:\.\d{1,3}){3})\s+([0-9a-fA-F]{2}(?:[:-][0-9a-fA-F]{2}){5})/.exec(out)
+    return m && m[1] === ip ? m[2] : null
+  }
+  if (process.platform === 'linux') {
+    const out = await runCmd('ip', ['-4', 'neigh', 'show', ip], 3000)
+    const m = /lladdr\s+([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})/.exec(out)
+    return m ? m[1].toLowerCase() : null
+  }
+  if (process.platform === 'darwin') {
+    const out = await runCmd('arp', ['-n', ip], 3000)
+    const m = /(?:at\s+)?([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})/.exec(out)
+    return m ? m[1] : null
+  }
+  return null
+}
+
 /**
  * Runs a command and returns its stdout (empty string on any failure). Used by
  * the optional, platform-specific discovery helpers below — a missing tool is
@@ -327,6 +482,7 @@ export class ScanManager extends EventEmitter {
   private options: ScanOptions | null = null
   private arpTable = new Map<string, string>()
   private localIps = new Set<string>()
+  private localMacs = new Map<string, string>()
   private doneCount = 0
   private cancelled = false
   private paused = false
@@ -411,9 +567,18 @@ export class ScanManager extends EventEmitter {
 
     this.log('info', `Scanning ${ips.length} hosts in ${options.target}…`)
     this.localIps = new Set<string>()
+    this.localMacs = new Map<string, string>()
     for (const infos of Object.values(os.networkInterfaces())) {
       for (const info of infos ?? []) {
-        if (info.family === 'IPv4') this.localIps.add(info.address)
+        if (info.family !== 'IPv4') continue
+        this.localIps.add(info.address)
+        if (info.mac && info.mac !== '00:00:00:00:00:00') {
+          // Match the dash-separated style of `arp -a` on Windows.
+          this.localMacs.set(
+            info.address,
+            process.platform === 'win32' ? info.mac.replace(/:/g, '-').toLowerCase() : info.mac
+          )
+        }
       }
     }
     this.arpTable = await readArpTable()
@@ -468,11 +633,21 @@ export class ScanManager extends EventEmitter {
     const latencies: number[] = []
     const via: string[] = []
 
-    const dnsPromise = reverseDns(ip, Math.max(1500, opts.timeoutMs), signal)
-    const arpMac = opts.methods.arp ? this.arpTable.get(ip) ?? null : null
-    if (arpMac) {
+    const isLocal = this.localIps.has(ip)
+    const nameTimeout = Math.max(1500, opts.timeoutMs)
+    const dnsPromise = reverseDns(ip, nameTimeout, signal)
+    const mdnsPromise =
+      !isLocal && (process.platform === 'win32' || process.platform === 'darwin')
+        ? mDnsReverse(ip, nameTimeout, signal)
+        : Promise.resolve(null)
+
+    // MAC: from the ARP snapshot, or from the local interfaces for our own IP.
+    let mac = opts.methods.arp ? this.arpTable.get(ip) ?? null : null
+    if (mac) {
       via.push('arp')
       latencies.push(0)
+    } else if (this.localMacs.has(ip)) {
+      mac = this.localMacs.get(ip) ?? null
     }
 
     let retries = Math.max(0, opts.retries)
@@ -499,15 +674,22 @@ export class ScanManager extends EventEmitter {
     const online = via.length > 0
     const latencyMs = online ? Math.min(...latencies) : null
 
+    // A probe to a fresh host populates the ARP cache, so query it again to
+    // pick up MACs that were not in the snapshot taken before scanning.
+    if (online && !mac) {
+      const fresh = await arpLookup(ip)
+      if (fresh) mac = fresh
+    }
+
     // Name resolution: reverse DNS first; on a typical LAN there are no PTR
-    // records, so fall back to the local machine name and then to the
-    // platform's NetBIOS/mDNS helpers (each fails fast when its tool is absent).
+    // records, so fall back to mDNS and then to the platform's NetBIOS/mDNS
+    // helpers (each fails fast when its tool is absent).
     let hostname: string | null = online ? await dnsPromise : null
+    if (online && !hostname) hostname = await mdnsPromise
     if (online && !hostname) {
-      if (this.localIps.has(ip)) {
+      if (isLocal) {
         hostname = os.hostname()
       } else {
-        const nameTimeout = Math.max(1500, opts.timeoutMs)
         const lookups =
           process.platform === 'win32'
             ? [netbiosName]
@@ -528,8 +710,8 @@ export class ScanManager extends EventEmitter {
       ip,
       status: online ? 'online' : 'offline',
       hostname,
-      mac: arpMac,
-      vendor: arpMac ? lookupVendor(normalizeMac(arpMac)) : null,
+      mac,
+      vendor: mac ? lookupVendor(normalizeMac(mac)) : null,
       latencyMs,
       via,
       firstSeen: now,
