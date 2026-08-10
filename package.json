@@ -1,7 +1,7 @@
 {
   "name": "glassy-ip-scanner",
   "productName": "Glassy IP Scanner",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A modern, fast, and lightweight network discovery tool with a glassmorphic interface.",
   "homepage": "https://github.com/exusxt/Glassy-IP-Scanner",
   "main": "./out/main/index.js",
