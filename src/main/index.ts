@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ScanEvent, ScanOptions, ScanState } from '../shared/types'
 import { listInterfaces, readArpTable, ScanManager } from './scanner'
+import { initUpdater } from './updater'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -34,6 +35,8 @@ function createWindow(): void {
   mainWindow.once('ready-to-show', () => mainWindow?.show())
   mainWindow.on('maximize', () => mainWindow?.webContents.send('win:maximized', true))
   mainWindow.on('unmaximize', () => mainWindow?.webContents.send('win:maximized', false))
+
+  initUpdater(mainWindow)
 
   if (process.env['ELECTRON_RENDERER_URL']) {
     void mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])

@@ -3,7 +3,7 @@
 // method is a thin ipcRenderer.invoke/send wrapper over the main-process IPC.
 
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { NetworkInterface, ScanEvent, ScanOptions, ScanState } from '../shared/types'
+import type { AppSettings, NetworkInterface, ScanEvent, ScanOptions, ScanState, UpdateState } from '../shared/types'
 
 const api = {
   // Network info.
@@ -24,6 +24,16 @@ const api = {
   windowIsMaximized: (): Promise<boolean> => ipcRenderer.invoke('win:isMaximized'),
   windowClose: (): Promise<void> => ipcRenderer.invoke('win:close'),
 
+  // Updater + settings.
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke('update:check'),
+  downloadUpdate: (): Promise<void> => ipcRenderer.invoke('update:download'),
+  installUpdate: (): Promise<void> => ipcRenderer.invoke('update:install'),
+  skipUpdate: (version: string): Promise<void> => ipcRenderer.invoke('update:skip', version),
+  clearSkipVersion: (): Promise<void> => ipcRenderer.invoke('update:clearSkip'),
+  getUpdateState: (): Promise<UpdateState> => ipcRenderer.invoke('update:state'),
+  getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
+  setSettings: (patch: Partial<AppSettings>): Promise<AppSettings> => ipcRenderer.invoke('settings:set', patch),
+
   // Subscriptions; each returns an unsubscribe function for React effects.
   onWindowMaximized: (cb: (maximized: boolean) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, maximized: boolean): void => cb(maximized)
@@ -34,6 +44,11 @@ const api = {
     const listener = (_e: IpcRendererEvent, ev: ScanEvent): void => cb(ev)
     ipcRenderer.on('scan:event', listener)
     return () => ipcRenderer.removeListener('scan:event', listener)
+  },
+  onUpdateState: (cb: (s: UpdateState) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, s: UpdateState): void => cb(s)
+    ipcRenderer.on('update:state', listener)
+    return () => ipcRenderer.removeListener('update:state', listener)
   }
 }
 

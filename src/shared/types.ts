@@ -86,3 +86,33 @@ export interface ScanState {
   /** Hosts found so far (offline entries included once probed). */
   hosts: HostResult[]
 }
+
+/** User-editable application settings, persisted to settings.json in userData. */
+export interface AppSettings {
+  /** When true, updates download automatically instead of asking each time. */
+  autoUpdate: boolean
+  /** Version the user chose to skip; its prompt will not show again. */
+  skipUpdateVersion: string | null
+}
+
+/** Live phase of the built-in updater (electron-updater / GitHub Releases). */
+export type UpdatePhase =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'not-available'
+  | 'error'
+
+/** Snapshot of the updater, pushed to the renderer on every transition. */
+export interface UpdateState {
+  phase: UpdatePhase
+  /** Version of the pending update, when known. */
+  version: string | null
+  /** Download progress in percent (0-100) while downloading. */
+  progress: number
+  /** Human-readable error message while in the 'error' phase. */
+  error: string | null
+  autoUpdate: boolean
+}

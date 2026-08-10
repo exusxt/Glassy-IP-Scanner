@@ -3,15 +3,16 @@
  * active item is tinted with the accent color; each row uses the standard
  * panel/border styling so it matches the reference app's look.
  */
-import { LayoutDashboard, ScanLine, Terminal } from 'lucide-react'
+import { LayoutDashboard, ScanLine, Settings, Terminal } from 'lucide-react'
 import { cn } from '../lib'
 
-export type ScreenId = 'overview' | 'scanner' | 'console'
+export type ScreenId = 'overview' | 'scanner' | 'console' | 'settings'
 
 const ITEMS: Array<{ id: ScreenId; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'scanner', label: 'Network Scanner', icon: ScanLine },
-  { id: 'console', label: 'Console', icon: Terminal }
+  { id: 'console', label: 'Console', icon: Terminal },
+  { id: 'settings', label: 'Settings', icon: Settings }
 ]
 
 export function Sidebar({

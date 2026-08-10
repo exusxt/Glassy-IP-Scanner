@@ -6,16 +6,19 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Shuffle } from 'lucide-react'
-import type { HostResult, NetworkInterface, ScanEvent, ScanProgress, ScanStatus, ScanSummary } from '../../shared/types'
+import type { AppSettings, HostResult, NetworkInterface, ScanEvent, ScanProgress, ScanStatus, ScanSummary } from '../../shared/types'
 import { applyTheme, isGalleryTheme, THEMES, type ThemeId } from './lib'
 import { BACKGROUNDS } from './backgrounds'
+import { useUpdater } from './updater'
 import { TitleBar } from './components/TitleBar'
 import { Header } from './components/Header'
 import { Sidebar, type ScreenId } from './components/Sidebar'
+import { UpdateDialog } from './components/UpdateDialog'
 import { Button } from './components/ui'
 import { OverviewScreen } from './screens/OverviewScreen'
 import { ScannerScreen } from './screens/ScannerScreen'
 import { ConsoleScreen } from './screens/ConsoleScreen'
+import { SettingsScreen } from './screens/SettingsScreen'
 
 const THEME_KEY = 'glassy-ip-scanner-theme'
 
@@ -47,7 +50,13 @@ export default function App(): React.JSX.Element {
   const [progress, setProgress] = useState<ScanProgress | null>(null)
   const [summary, setSummary] = useState<ScanSummary | null>(null)
   const [logs, setLogs] = useState<ScanLogLine[]>([])
+  const [settings, setSettings] = useState<AppSettings>({ autoUpdate: false, skipUpdateVersion: null })
+  const updater = useUpdater()
   const hostsRef = useRef<HostResult[]>([])
+
+  const saveSettings = useCallback((patch: Partial<AppSettings>): void => {
+    void window.api.setSettings(patch).then(setSettings).catch(() => undefined)
+  }, [])
 
   const refreshInterfaces = useCallback(async (): Promise<void> => {
     setRefreshing(true)
@@ -64,6 +73,7 @@ export default function App(): React.JSX.Element {
     void refreshInterfaces()
     window.api.getVersion().then(setVersion).catch(() => undefined)
     window.api.windowIsMaximized().then(setMaximized).catch(() => undefined)
+    window.api.getSettings().then(setSettings).catch(() => undefined)
     window.api.scanState().then((s) => {
       setStatus(s.status)
       setHosts(s.hosts)
@@ -159,8 +169,20 @@ export default function App(): React.JSX.Element {
         )
       case 'console':
         return <ConsoleScreen logs={logs} />
+      case 'settings':
+        return (
+          <SettingsScreen
+            version={version}
+            autoUpdate={settings.autoUpdate}
+            onAutoUpdateChange={(v) => saveSettings({ autoUpdate: v })}
+            skipVersion={settings.skipUpdateVersion}
+            onClearSkip={() => saveSettings({ skipUpdateVersion: null })}
+            updateState={updater.state}
+            onCheckNow={() => void updater.checkNow()}
+          />
+        )
     }
-  }, [screen, interfaces, hosts, summary, status, progress, logs])
+  }, [screen, interfaces, hosts, summary, status, progress, logs, version, settings, updater.state, updater.checkNow, saveSettings])
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">
@@ -219,6 +241,16 @@ export default function App(): React.JSX.Element {
           </footer>
         </div>
       </div>
+
+      <UpdateDialog
+        state={updater.state}
+        manual={updater.manualCheck}
+        onDownload={() => void updater.download()}
+        onLater={() => undefined}
+        onSkip={(v) => void updater.skip(v)}
+        onRestart={() => void updater.install()}
+        onManualDone={updater.clearManualCheck}
+      />
     </div>
   )
 }
