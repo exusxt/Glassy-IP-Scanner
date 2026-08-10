@@ -1,7 +1,7 @@
 // Electron main-process entry point: app lifecycle, the frameless window and
 // the IPC surface that exposes the Node scanning engine to the renderer.
 
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ScanEvent, ScanOptions, ScanState } from '../shared/types'
@@ -13,6 +13,18 @@ let mainWindow: BrowserWindow | null = null
 /** Single scan manager shared across the app; serializes scans. */
 const scanManager = new ScanManager()
 
+/** Window icon shared by the title bar and taskbar; falls back to undefined. */
+function windowIcon(): Electron.NativeImage | undefined {
+  for (const name of ['icon.ico', 'icon.png']) {
+    const candidate = join(app.getAppPath(), 'build', name)
+    if (existsSync(candidate)) {
+      const image = nativeImage.createFromPath(candidate)
+      if (!image.isEmpty()) return image
+    }
+  }
+  return undefined
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1180,
@@ -21,7 +33,7 @@ function createWindow(): void {
     minHeight: 620,
     title: 'Glassy IP Scanner',
     backgroundColor: '#0b1020',
-    icon: existsSync(join(app.getAppPath(), 'build/icon.png')) ? join(app.getAppPath(), 'build/icon.png') : undefined,
+    icon: windowIcon(),
     frame: false,
     show: false,
     webPreferences: {
@@ -88,6 +100,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === 'win32') app.setAppUserModelId('com.glassy.ipscanner')
   registerIpc()
   createWindow()
   app.on('activate', () => {
