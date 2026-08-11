@@ -8,65 +8,67 @@ Built with simplicity and performance in mind, Glassy IP Scanner makes network d
 
 ## ✨ Features
 
+> **Status icons:** ✅ fully implemented · 🟡 partially implemented · ❌ not implemented yet
+
 ### 🔎 Fast Network Scanning
 
-* Scan local IPv4 and IPv6 networks
-* Automatically detect local network interfaces and subnets
-* Custom IP range scanning
-* CIDR notation support
-* Configurable scan speed and timeout
-* Multi-threaded/asynchronous scanning
-* Pause, resume, and cancel scans
-* Real-time scan progress
-* Intelligent retry handling
-* Lightweight resource usage
+* 🟡 Scan local IPv4 and IPv6 networks (IPv4 only)
+* ✅ Automatically detect local network interfaces and subnets
+* ✅ Custom IP range scanning
+* ✅ CIDR notation support
+* ✅ Configurable scan speed and timeout
+* ✅ Multi-threaded/asynchronous scanning
+* ✅ Pause, resume, and cancel scans
+* ✅ Real-time scan progress
+* ✅ Intelligent retry handling
+* ✅ Lightweight resource usage
 
 ### 🖥️ Device Discovery
 
 Automatically identify devices on your network and display:
 
-* IP address
-* IPv6 address
-* Hostname
-* MAC address
-* MAC vendor / manufacturer
-* Device status
-* Response time / latency
-* Open ports
-* Operating system hints
-* Network interface information
-* First-seen and last-seen timestamps
+* ✅ IP address
+* ❌ IPv6 address
+* ✅ Hostname
+* ✅ MAC address
+* ✅ MAC vendor / manufacturer
+* ✅ Device status
+* ✅ Response time / latency
+* ❌ Open ports
+* ❌ Operating system hints
+* ✅ Network interface information
+* 🟡 First-seen and last-seen timestamps (recorded, not shown in the UI)
 
 ### 🌐 Network Discovery Methods
 
 Use multiple discovery techniques to improve device detection:
 
-* ICMP ping
-* ARP discovery
-* TCP probing
-* UDP discovery
-* DNS resolution
-* mDNS / Bonjour
-* NetBIOS discovery
-* SNMP support
-* IPv6 Neighbor Discovery
+* ✅ ICMP ping
+* ✅ ARP discovery
+* ✅ TCP probing
+* ❌ UDP discovery
+* ✅ DNS resolution
+* 🟡 mDNS / Bonjour (hostname resolution only)
+* 🟡 NetBIOS discovery (hostname resolution only)
+* ❌ SNMP support
+* ❌ IPv6 Neighbor Discovery
 
-The scanner should intelligently select appropriate discovery methods depending on the network and platform.
+The scanner should intelligently select appropriate discovery methods depending on the network and platform. 🟡 (methods are user-selected)
 
 ### 🔌 Port Scanner
 
 Built-in port scanning for quickly identifying network services.
 
-* Common-port presets
-* Custom port ranges
-* TCP connect scanning
-* Optional UDP scanning
-* Service detection
-* Port state detection
-* Configurable timeouts
-* Concurrent scanning
-* Custom port lists
-* Service banners where appropriate
+* ❌ Common-port presets
+* ❌ Custom port ranges
+* 🟡 TCP connect scanning (used as a discovery probe, not a full port scanner)
+* ❌ Optional UDP scanning
+* ❌ Service detection
+* ❌ Port state detection
+* ✅ Configurable timeouts
+* 🟡 Concurrent scanning (probes ports concurrently)
+* 🟡 Custom port lists (TCP probe ports only)
+* ❌ Service banners where appropriate
 
 Example:
 
@@ -82,15 +84,15 @@ Example:
 
 Make raw network information understandable.
 
-* Vendor lookup from MAC address
-* Hostname resolution
-* Service identification
-* Device type classification
-* Custom device names
-* User-defined tags
-* Favorites
-* Notes
-* Custom icons
+* ✅ Vendor lookup from MAC address
+* ✅ Hostname resolution
+* ❌ Service identification
+* ❌ Device type classification
+* ❌ Custom device names
+* ❌ User-defined tags
+* ❌ Favorites
+* ❌ Notes
+* ❌ Custom icons
 
 Example:
 
@@ -105,61 +107,61 @@ Living Room TV
 
 Provide a clean overview of the network.
 
-* Total devices discovered
-* Online/offline devices
-* New devices
-* Device categories
-* Open services
-* Network latency
-* Scan duration
-* Network utilization statistics
-* Recently discovered devices
+* ✅ Total devices discovered
+* ✅ Online/offline devices
+* ❌ New devices
+* ❌ Device categories
+* ❌ Open services
+* 🟡 Network latency (per-device latency, no aggregate)
+* ✅ Scan duration
+* ❌ Network utilization statistics
+* ✅ Recently discovered devices
 
 ### 🗺️ Network Map
 
 Visualize discovered devices instead of displaying only a table.
 
-* Router/gateway detection
-* Device relationships
-* Network topology
-* Device grouping
-* Interactive network graph
-* Zoom and pan
-* Device details on selection
+* ❌ Router/gateway detection
+* ❌ Device relationships
+* ❌ Network topology
+* ❌ Device grouping
+* ❌ Interactive network graph
+* ❌ Zoom and pan
+* ❌ Device details on selection
 
 ### 🔔 Device Monitoring
 
 Turn Glassy IP Scanner into a lightweight network monitoring tool.
 
-* Continuous scanning
-* Device online/offline detection
-* New-device notifications
-* Device disappearance alerts
-* Configurable scan intervals
-* Availability history
-* Response-time history
+* ❌ Continuous scanning
+* 🟡 Device online/offline detection (per-scan only, no monitoring)
+* ❌ New-device notifications
+* ❌ Device disappearance alerts
+* ❌ Configurable scan intervals
+* ❌ Availability history
+* ❌ Response-time history
 
 Optional integrations:
 
-* Desktop notifications
-* Webhooks
-* Discord
-* Slack
-* Email
+* ❌ Desktop notifications
+* ❌ Webhooks
+* ❌ Discord
+* ❌ Slack
+* ❌ Email
 
 ### 📜 Scan History
 
 Keep track of what has changed on the network.
 
-* Previous scan results
-* Compare scans
-* New devices
-* Removed devices
-* Changed IP addresses
-* Changed MAC addresses
-* Changed hostnames
-* Changed open ports
-* Historical device information
+* ❌ Previous scan results
+* ❌ Compare scans
+* ❌ New devices
+* ❌ Removed devices
+* ❌ Changed IP addresses
+* ❌ Changed MAC addresses
+* ❌ Changed hostnames
+* ❌ Changed open ports
+* ❌ Historical device information
 
 ### 📤 Export & Reporting
 
@@ -167,20 +169,20 @@ Make results easy to share.
 
 Supported formats:
 
-* CSV
-* JSON
-* XML
-* HTML
-* Markdown
-* PDF reports
+* ❌ CSV
+* ❌ JSON
+* ❌ XML
+* ❌ HTML
+* ❌ Markdown
+* ❌ PDF reports
 
 Allow users to export:
 
-* Complete scan results
-* Selected devices
-* Port information
-* Device history
-* Network summaries
+* ❌ Complete scan results
+* ❌ Selected devices
+* ❌ Port information
+* ❌ Device history
+* ❌ Network summaries
 
 ### 🔍 Powerful Search & Filtering
 
@@ -188,15 +190,15 @@ Quickly find exactly what you're looking for.
 
 Search by:
 
-* IP address
-* Hostname
-* MAC address
-* Vendor
-* Port
-* Service
-* Device type
-* Tags
-* Status
+* ❌ IP address
+* ❌ Hostname
+* ❌ MAC address
+* ❌ Vendor
+* ❌ Port
+* ❌ Service
+* ❌ Device type
+* ❌ Tags
+* ❌ Status
 
 Advanced filters could support queries such as:
 
@@ -211,53 +213,53 @@ ip:192.168.1.*
 
 Allow users to build their own network inventory.
 
-* Favorite devices
-* Custom names
-* Notes
-* Tags
-* Device icons
-* Static metadata
-* Custom groups
-* Known-device database
+* ❌ Favorite devices
+* ❌ Custom names
+* ❌ Notes
+* ❌ Tags
+* ❌ Device icons
+* ❌ Static metadata
+* ❌ Custom groups
+* ❌ Known-device database
 
 ### 🔐 Privacy First
 
 Glassy IP Scanner should be designed with privacy as a core principle.
 
-* No mandatory account
-* No cloud dependency for basic scanning
-* No unnecessary telemetry
-* Local-first architecture
-* Network data stays on the user's machine by default
-* Transparent permissions
-* Open-source codebase
+* ✅ No mandatory account
+* ✅ No cloud dependency for basic scanning
+* ✅ No unnecessary telemetry
+* ✅ Local-first architecture
+* ✅ Network data stays on the user's machine by default
+* ✅ Transparent permissions
+* ✅ Open-source codebase
 
 ### ⚡ Performance
 
 Designed to handle everything from a small home network to large enterprise subnets.
 
-* Async/multi-threaded scanning
-* Efficient socket management
-* Configurable concurrency
-* Low memory usage
-* Streaming scan results
-* Responsive UI during large scans
-* Intelligent rate limiting
+* ✅ Async/multi-threaded scanning
+* ✅ Efficient socket management
+* ✅ Configurable concurrency
+* ✅ Low memory usage
+* ✅ Streaming scan results
+* ✅ Responsive UI during large scans
+* 🟡 Intelligent rate limiting (concurrency limits only)
 
 ### 🎨 Modern Interface
 
 A polished interface can be one of Glassy's biggest advantages.
 
-* Clean modern UI
-* Light and dark themes
-* Customizable columns
-* Responsive tables
-* Sortable results
-* Keyboard shortcuts
-* Context menus
-* Device icons
-* Smooth animations
-* Accessible color schemes
+* ✅ Clean modern UI
+* ✅ Light and dark themes
+* ❌ Customizable columns
+* ✅ Responsive tables
+* ✅ Sortable results
+* ❌ Keyboard shortcuts
+* ❌ Context menus
+* ❌ Device icons
+* 🟡 Smooth animations (CSS transitions)
+* 🟡 Accessible color schemes
 
 ---
 
