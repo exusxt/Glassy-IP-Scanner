@@ -101,9 +101,11 @@ async function checkPortable(): Promise<void> {
       setPhase('idle')
       return
     }
-    // The portable artifact name is fixed by electron-builder, so the download
-    // URL can be constructed without listing the release's assets.
-    const name = `Glassy-IP-Scanner-${tag}.exe`
+    // The portable artifact name is fixed by electron-builder and uses the
+    // version without the "v" tag prefix, so the download URL can be
+    // constructed without listing the release's assets.
+    const version = tag.replace(/^v/i, '')
+    const name = `Glassy-IP-Scanner-${version}.exe`
     const url = `https://github.com/${cfg.owner}/${cfg.repo}/releases/latest/download/${name}`
     portableTarget = { version: tag, url }
     setPhase('available', { version: tag, progress: 0 })
