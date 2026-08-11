@@ -15,6 +15,7 @@ import { createWriteStream, existsSync, readFileSync, renameSync, rmSync, writeF
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import type { AppSettings, UpdateState } from '../shared/types'
+import { appVersion } from './app-version'
 import { getSettings, setSettings } from './settings'
 
 let mainWindow: BrowserWindow | null = null
@@ -93,7 +94,7 @@ async function checkPortable(): Promise<void> {
       const t = m[1].trim()
       if (semverGt(t, tag)) tag = t
     }
-    if (!tag || !semverGt(tag, app.getVersion())) {
+    if (!tag || !semverGt(tag, appVersion())) {
       setPhase('not-available')
       return
     }

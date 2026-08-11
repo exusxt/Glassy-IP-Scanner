@@ -5,6 +5,20 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.13] - 2026-08-11
+
+### Added
+
+- Device type classification: every host is labelled (Router, Printer, NAS, Camera, TV, Speaker, Phone, Tablet, Laptop, Computer, Console, Raspberry Pi, Server, Smart device…) from hostname patterns, vendor fingerprints and the default-gateway heuristic, shown with an icon in the results table and overview
+- Built-in TCP port scanner: scan the online devices for open ports with Common / Web / File sharing / Gaming presets or a custom port range, with live progress and per-port service names
+- Device profiles: click any row to open a detail dialog where you can give a device a custom name, notes, tags and mark it as a favorite. Profiles persist per MAC across scans (stored in `devices.json` in the user data directory)
+- Search & filtering: free-text search across IP, hostname, vendor, MAC, custom name and tags, plus status, device-type and favorites-only filters
+- Service identification: well-known TCP ports are labelled with their service (SSH, HTTP, SMB…) in the results and device detail
+
+### Fixed
+
+- The app version shown in the title bar no longer falls back to Electron's version (e.g. "43.3.0") when the built main bundle is launched directly: the package version is now baked into the bundle at build time, so the correct version is always reported
+
 ## [v0.1.12] - 2026-08-11
 
 ### Fixed

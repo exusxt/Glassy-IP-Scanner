@@ -34,7 +34,7 @@ Automatically identify devices on your network and display:
 * ✅ MAC vendor / manufacturer
 * ✅ Device status
 * ✅ Response time / latency
-* ❌ Open ports
+* 🟡 Open ports (shown after running the built-in port scanner)
 * ❌ Operating system hints
 * ✅ Network interface information
 * 🟡 First-seen and last-seen timestamps (recorded, not shown in the UI)
@@ -59,15 +59,15 @@ The scanner should intelligently select appropriate discovery methods depending 
 
 Built-in port scanning for quickly identifying network services.
 
-* ❌ Common-port presets
-* ❌ Custom port ranges
-* 🟡 TCP connect scanning (used as a discovery probe, not a full port scanner)
+* ✅ Common-port presets
+* ✅ Custom port ranges
+* ✅ TCP connect scanning
 * ❌ Optional UDP scanning
-* ❌ Service detection
-* ❌ Port state detection
+* ✅ Service detection (well-known port → service names)
+* 🟡 Port state detection (open vs closed; no "filtered" state)
 * ✅ Configurable timeouts
-* 🟡 Concurrent scanning (probes ports concurrently)
-* 🟡 Custom port lists (TCP probe ports only)
+* ✅ Concurrent scanning
+* ✅ Custom port lists (TCP probe ports + custom ranges)
 * ❌ Service banners where appropriate
 
 Example:
@@ -86,12 +86,12 @@ Make raw network information understandable.
 
 * ✅ Vendor lookup from MAC address
 * ✅ Hostname resolution
-* ❌ Service identification
-* ❌ Device type classification
-* ❌ Custom device names
-* ❌ User-defined tags
-* ❌ Favorites
-* ❌ Notes
+* 🟡 Service identification (well-known port → service names, no fingerprinting)
+* ✅ Device type classification (heuristic from vendor, hostname and gateway)
+* ✅ Custom device names
+* ✅ User-defined tags
+* ✅ Favorites
+* ✅ Notes
 * ❌ Custom icons
 
 Example:
@@ -111,7 +111,7 @@ Provide a clean overview of the network.
 * ✅ Online/offline devices
 * ❌ New devices
 * ❌ Device categories
-* ❌ Open services
+* 🟡 Open services (shown per-device in the device detail dialog)
 * 🟡 Network latency (per-device latency, no aggregate)
 * ✅ Scan duration
 * ❌ Network utilization statistics
@@ -190,15 +190,15 @@ Quickly find exactly what you're looking for.
 
 Search by:
 
-* ❌ IP address
-* ❌ Hostname
-* ❌ MAC address
-* ❌ Vendor
+* ✅ IP address
+* ✅ Hostname
+* ✅ MAC address
+* ✅ Vendor
 * ❌ Port
 * ❌ Service
-* ❌ Device type
-* ❌ Tags
-* ❌ Status
+* ✅ Device type
+* ✅ Tags
+* ✅ Status
 
 Advanced filters could support queries such as:
 
@@ -213,14 +213,14 @@ ip:192.168.1.*
 
 Allow users to build their own network inventory.
 
-* ❌ Favorite devices
-* ❌ Custom names
-* ❌ Notes
-* ❌ Tags
+* ✅ Favorite devices
+* ✅ Custom names
+* ✅ Notes
+* ✅ Tags
 * ❌ Device icons
-* ❌ Static metadata
+* 🟡 Static metadata (name, notes, tags, favorite)
 * ❌ Custom groups
-* ❌ Known-device database
+* 🟡 Known-device database (profiles persist per MAC across scans)
 
 ### 🔐 Privacy First
 
@@ -280,13 +280,13 @@ A polished interface can be one of Glassy's biggest advantages.
 
 ### Phase 2 — Device Intelligence
 
-* [ ] Device type detection
-* [ ] Custom device names
-* [ ] Tags and favorites
-* [ ] Device notes
-* [ ] Service detection
-* [ ] Port scanning
-* [ ] Search and filtering
+* [x] Device type detection
+* [x] Custom device names
+* [x] Tags and favorites
+* [x] Device notes
+* [x] Service detection
+* [x] Port scanning
+* [x] Search and filtering
 
 ### Phase 3 — Network Management
 

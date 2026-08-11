@@ -6,6 +6,7 @@
 import { Activity, Clock, Laptop, MonitorDot, Network, ScanLine } from 'lucide-react'
 import type { HostResult, NetworkInterface, ScanProgress, ScanStatus, ScanSummary } from '../../../shared/types'
 import { Badge, Button, Panel, ProgressBar } from '../components/ui'
+import { DeviceTypeIcon } from '../components/DeviceTypeIcon'
 import { cn } from '../lib'
 
 function StatCard({ icon: Icon, label, value, tone }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; tone?: 'good' | 'accent' }): React.JSX.Element {
@@ -117,11 +118,12 @@ export function OverviewScreen({
                 <li key={host.ip} className="flex items-center justify-between gap-4 px-4 py-2.5">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm text-glassy-text">{host.ip}</span>
+                      <DeviceTypeIcon type={host.deviceType} className="text-glassy-accent/70" />
+                      <span className="truncate text-sm font-semibold text-glassy-text">{host.hostname ?? host.vendor ?? host.ip}</span>
                       <Badge tone="good">online</Badge>
                     </div>
                     <div className="mt-0.5 truncate text-xs text-glassy-muted">
-                      {host.hostname ?? host.vendor ?? 'Unknown device'}
+                      <span className="font-mono">{host.ip}</span>
                       {host.vendor && host.hostname ? ` · ${host.vendor}` : ''}
                     </div>
                   </div>

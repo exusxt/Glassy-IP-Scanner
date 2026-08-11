@@ -4,7 +4,9 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ScanEvent, ScanOptions, ScanState } from '../shared/types'
+import type { DeviceProfile, PortScanOptions, ScanEvent, ScanOptions, ScanState } from '../shared/types'
+import { appVersion } from './app-version'
+import { getDevices, setDeviceProfile } from './devices'
 import { listInterfaces, readArpTable, ScanManager } from './scanner'
 import { initUpdater } from './updater'
 
@@ -85,9 +87,18 @@ function registerIpc(): void {
     return scanManager.getState()
   })
   ipcMain.handle('scan:state', (): ScanState => scanManager.getState())
+  ipcMain.handle('scan:ports', async (_e, options: PortScanOptions): Promise<void> => {
+    await scanManager.scanPorts(options)
+  })
+
+  // Device profiles (names, notes, tags, favorites), keyed by MAC.
+  ipcMain.handle('devices:get', (): ReturnType<typeof getDevices> => getDevices())
+  ipcMain.handle('devices:set', (_e, key: string, patch: Partial<DeviceProfile>): ReturnType<typeof setDeviceProfile> =>
+    setDeviceProfile(key, patch)
+  )
 
   // App + window helpers.
-  ipcMain.handle('app:getVersion', () => app.getVersion())
+  ipcMain.handle('app:getVersion', () => appVersion())
   ipcMain.handle('win:minimize', () => mainWindow?.minimize())
   ipcMain.handle('win:toggleMaximize', () => {
     if (!mainWindow) return false

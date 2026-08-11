@@ -3,7 +3,17 @@
 // method is a thin ipcRenderer.invoke/send wrapper over the main-process IPC.
 
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { AppSettings, NetworkInterface, ScanEvent, ScanOptions, ScanState, UpdateState } from '../shared/types'
+import type {
+  AppSettings,
+  DeviceProfile,
+  DeviceProfiles,
+  NetworkInterface,
+  PortScanOptions,
+  ScanEvent,
+  ScanOptions,
+  ScanState,
+  UpdateState
+} from '../shared/types'
 
 const api = {
   // Network info.
@@ -16,6 +26,14 @@ const api = {
   scanResume: (): Promise<ScanState> => ipcRenderer.invoke('scan:resume'),
   scanCancel: (): Promise<ScanState> => ipcRenderer.invoke('scan:cancel'),
   scanState: (): Promise<ScanState> => ipcRenderer.invoke('scan:state'),
+
+  // Port scanning.
+  scanPorts: (options: PortScanOptions): Promise<void> => ipcRenderer.invoke('scan:ports', options),
+
+  // Device profiles.
+  getDevices: (): Promise<DeviceProfiles> => ipcRenderer.invoke('devices:get'),
+  setDeviceProfile: (key: string, patch: Partial<DeviceProfile>): Promise<DeviceProfiles> =>
+    ipcRenderer.invoke('devices:set', key, patch),
 
   // App + window helpers.
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),

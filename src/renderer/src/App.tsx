@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Shuffle } from 'lucide-react'
-import type { AppSettings, HostResult, NetworkInterface, ScanEvent, ScanProgress, ScanStatus, ScanSummary } from '../../shared/types'
+import type { AppSettings, DeviceProfile, DeviceProfiles, HostResult, NetworkInterface, ScanEvent, ScanProgress, ScanStatus, ScanSummary } from '../../shared/types'
 import { applyTheme, isGalleryTheme, THEMES, type ThemeId } from './lib'
 import { BACKGROUNDS } from './backgrounds'
 import { useUpdater } from './updater'
@@ -51,11 +51,16 @@ export default function App(): React.JSX.Element {
   const [summary, setSummary] = useState<ScanSummary | null>(null)
   const [logs, setLogs] = useState<ScanLogLine[]>([])
   const [settings, setSettings] = useState<AppSettings>({ autoUpdate: false, skipUpdateVersion: null })
+  const [devices, setDevices] = useState<DeviceProfiles>({})
   const updater = useUpdater()
   const hostsRef = useRef<HostResult[]>([])
 
   const saveSettings = useCallback((patch: Partial<AppSettings>): void => {
     void window.api.setSettings(patch).then(setSettings).catch(() => undefined)
+  }, [])
+
+  const updateDevice = useCallback((key: string, patch: Partial<DeviceProfile>): void => {
+    void window.api.setDeviceProfile(key, patch).then(setDevices).catch(() => undefined)
   }, [])
 
   const refreshInterfaces = useCallback(async (): Promise<void> => {
@@ -80,6 +85,7 @@ export default function App(): React.JSX.Element {
       setSummary(s.summary)
       hostsRef.current = s.hosts
     })
+    window.api.getDevices().then(setDevices).catch(() => undefined)
     const offMax = window.api.onWindowMaximized(setMaximized)
     return offMax
   }, [refreshInterfaces])
@@ -119,6 +125,11 @@ export default function App(): React.JSX.Element {
           setLogs((prev) => [...prev.slice(-199), { id: ++logIdCounter, level: ev.level, message: ev.message }])
           break
         }
+        case 'portProgress':
+        case 'portDone':
+          // Port-scan progress is tracked locally in the Scanner screen; the
+          // 'host' events for updated open ports are handled above.
+          break
       }
     })
     return off
@@ -162,6 +173,8 @@ export default function App(): React.JSX.Element {
             progress={progress}
             summary={summary}
             hosts={hosts}
+            devices={devices}
+            onUpdateDevice={updateDevice}
             initialTarget={initialTarget}
             onTargetConsumed={() => setInitialTarget(null)}
             onStatusChange={setStatus}
@@ -182,7 +195,7 @@ export default function App(): React.JSX.Element {
           />
         )
     }
-  }, [screen, interfaces, hosts, summary, status, progress, logs, version, settings, updater.state, updater.checkNow, saveSettings])
+  }, [screen, interfaces, hosts, summary, status, progress, logs, version, settings, devices, updateDevice, updater.state, updater.checkNow, saveSettings])
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">

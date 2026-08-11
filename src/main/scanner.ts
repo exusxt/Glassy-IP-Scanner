@@ -21,6 +21,7 @@ import os from 'node:os'
 import type {
   HostResult,
   NetworkInterface,
+  PortScanOptions,
   ScanEvent,
   ScanOptions,
   ScanProgress,
@@ -28,6 +29,7 @@ import type {
   ScanStatus,
   ScanSummary
 } from '../shared/types'
+import { detectDeviceType } from './device-type'
 import { lookupVendor, normalizeMac } from './vendors'
 
 // ---------------------------------------------------------------------------
@@ -202,6 +204,59 @@ function tcpProbe(
         }
       })
     }
+  })
+}
+
+/**
+ * Full TCP connect scan of one host against many ports, with a bounded number
+ * of sockets in flight (16) so a large port list never exhausts handles.
+ * Resolves with the sorted list of open ports.
+ */
+function probePorts(ip: string, ports: number[], timeoutMs: number, signal: AbortSignal): Promise<number[]> {
+  return new Promise((resolve) => {
+    if (ports.length === 0) {
+      resolve([])
+      return
+    }
+    const open: number[] = []
+    const limit = Math.min(16, ports.length)
+    const sockets = new Set<net.Socket>()
+    const onAbort = (): void => {
+      for (const s of sockets) s.destroy()
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+    let next = 0
+    let active = 0
+    let finished = 0
+    const maybeDone = (): void => {
+      if (finished === ports.length) {
+        signal.removeEventListener('abort', onAbort)
+        resolve(open.sort((a, b) => a - b))
+      }
+    }
+    const startOne = (): void => {
+      while (active < limit && next < ports.length) {
+        const port = ports[next++]
+        active++
+        const sock = net.connect({ host: ip, port, family: 4 })
+        sockets.add(sock)
+        sock.setTimeout(timeoutMs)
+        sock.once('connect', () => {
+          open.push(port)
+          sock.destroy()
+        })
+        sock.once('timeout', () => sock.destroy())
+        sock.once('error', () => sock.destroy())
+        sock.once('close', () => {
+          sockets.delete(sock)
+          active--
+          finished++
+          startOne()
+          maybeDone()
+        })
+      }
+    }
+    startOne()
   })
 }
 
@@ -559,6 +614,7 @@ export class ScanManager extends EventEmitter {
   private arpTable = new Map<string, string>()
   private localIps = new Set<string>()
   private localMacs = new Map<string, string>()
+  private gatewayIp: string | null = null
   private doneCount = 0
   private cancelled = false
   private paused = false
@@ -644,6 +700,7 @@ export class ScanManager extends EventEmitter {
     this.log('info', `Scanning ${ips.length} hosts in ${options.target}…`)
     this.localIps = new Set<string>()
     this.localMacs = new Map<string, string>()
+    this.gatewayIp = await defaultGateway()
     for (const infos of Object.values(os.networkInterfaces())) {
       for (const info of infos ?? []) {
         if (info.family !== 'IPv4') continue
@@ -703,7 +760,21 @@ export class ScanManager extends EventEmitter {
   /** Probes one address with the enabled discovery methods. */
   private async probeHost(ip: string, signal: AbortSignal): Promise<HostResult> {
     const opts = this.options
-    if (!opts) return { ip, status: 'offline', hostname: null, mac: null, vendor: null, latencyMs: null, via: [], firstSeen: '', lastSeen: '' }
+    if (!opts) {
+      return {
+        ip,
+        status: 'offline',
+        hostname: null,
+        mac: null,
+        vendor: null,
+        latencyMs: null,
+        via: [],
+        deviceType: 'unknown',
+        openPorts: [],
+        firstSeen: '',
+        lastSeen: ''
+      }
+    }
 
     const now = new Date().toISOString()
     const latencies: number[] = []
@@ -787,16 +858,56 @@ export class ScanManager extends EventEmitter {
       }
     }
 
+    const vendor = mac ? lookupVendor(normalizeMac(mac)) : null
+
     return {
       ip,
       status: online ? 'online' : 'offline',
       hostname,
       mac,
-      vendor: mac ? lookupVendor(normalizeMac(mac)) : null,
+      vendor,
       latencyMs,
       via,
+      deviceType: detectDeviceType({ hostname, vendor, isGateway: ip === this.gatewayIp }),
+      openPorts: [],
       firstSeen: now,
       lastSeen: now
     }
+  }
+
+  /**
+   * Standalone TCP port scan (Phase 2). Probes `ports` on the given online
+   * hosts, updates each host's `openPorts` (re-emitted as a 'host' event so
+   * the UI table refreshes) and streams 'portProgress'/'portDone' events.
+   * Only runs outside a discovery scan.
+   */
+  async scanPorts(options: PortScanOptions): Promise<void> {
+    if (this.status === 'running' || this.status === 'paused') return
+    const onlineByIp = new Map(this.hosts.filter((h) => h.status === 'online').map((h) => [h.ip, h]))
+    const ips = options.ips.filter((ip) => onlineByIp.has(ip))
+    const ports = [...new Set(options.ports)]
+      .filter((p) => Number.isInteger(p) && p >= 1 && p <= 65535)
+      .sort((a, b) => a - b)
+    if (ips.length === 0 || ports.length === 0) {
+      this.log('warn', 'Port scan skipped: no online devices or no ports configured')
+      return
+    }
+    this.log('info', `Port scanning ${ips.length} device(s) across ${ports.length} port(s)…`)
+    const timeoutMs = Math.max(100, options.timeoutMs)
+    const signal = new AbortController().signal
+    let scanned = 0
+    await runWorkers(ips, 20, async (ip) => {
+      const open = await probePorts(ip, ports, timeoutMs, signal)
+      const host = onlineByIp.get(ip)
+      if (host) {
+        host.openPorts = open
+        this.emitEvent({ type: 'host', host: { ...host } })
+      }
+      scanned++
+      this.emitEvent({ type: 'portProgress', progress: { scanned, total: ips.length, currentIp: ip } })
+    })
+    const open = this.hosts.reduce((n, h) => n + h.openPorts.length, 0)
+    this.emitEvent({ type: 'portDone', scanned, open })
+    this.log('info', `Port scan complete: ${open} open port(s) found`)
   }
 }

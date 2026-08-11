@@ -1,30 +1,173 @@
 /**
  * Network Scanner screen: configure a scan (target, concurrency, timeout,
  * discovery methods), drive it via the main-process scanner, and inspect the
- * live results in a table. Streamed events from main keep the UI in sync.
+ * live results in a table. Phase 2 additions: search & filtering, device type
+ * classification, a TCP port scanner with presets, per-device profiles
+ * (custom name / notes / tags / favorite) and a detail dialog.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowDown, ArrowUp, ArrowUpDown, Ban, Pause, Play, Radar, RotateCcw, ScanLine, Zap } from 'lucide-react'
-import type { HostResult, NetworkInterface, ScanProgress, ScanStatus, ScanSummary } from '../../../shared/types'
-import { Badge, Button, Panel, ProgressBar, Spinner } from '../components/ui'
-import { cn } from '../lib'
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Ban,
+  Pause,
+  Play,
+  Radar,
+  RotateCcw,
+  ScanLine,
+  Search,
+  Star,
+  X,
+  Zap
+} from 'lucide-react'
+import type { DeviceProfile, DeviceProfiles, DeviceTypeId, HostResult, NetworkInterface, PortScanProgress, ScanProgress, ScanStatus, ScanSummary } from '../../../shared/types'
+import { DeviceTypeIcon } from '../components/DeviceTypeIcon'
+import { Badge, Button, Field, Input, Panel, ProgressBar, Select, Spinner } from '../components/ui'
+import { cn, DEVICE_TYPE_META, portServiceName } from '../lib'
 
 const VALID_TARGET = /^(?:((?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\/(?:[1-9]|[12]\d|3[0-2]))|((?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:-((?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d))?$/
 
-type SortKey = 'status' | 'ip' | 'hostname' | 'mac' | 'latency'
+type SortKey = 'status' | 'device' | 'ip' | 'mac' | 'type' | 'ports' | 'latency'
 type SortDir = 'asc' | 'desc'
+type FilterStatus = 'all' | 'online' | 'offline'
+type PortPresetId = 'common' | 'web' | 'file' | 'gaming' | 'custom'
 
 const SORT_COLS: Array<{ key: SortKey | null; label: string }> = [
+  { key: null, label: '' },
   { key: 'status', label: 'Status' },
+  { key: 'device', label: 'Device' },
   { key: 'ip', label: 'IP' },
-  { key: 'hostname', label: 'Hostname' },
   { key: 'mac', label: 'MAC / Vendor' },
+  { key: 'type', label: 'Type' },
+  { key: 'ports', label: 'Ports' },
   { key: 'latency', label: 'Latency' },
   { key: null, label: 'Via' }
 ]
 
+const PORT_PRESETS: Record<Exclude<PortPresetId, 'custom'>, number[]> = {
+  common: [22, 53, 80, 443, 445, 139, 137, 3389, 5900, 8080, 8000, 8443, 8888, 8081, 5000, 5060, 1935, 8883, 5353, 1900],
+  web: [80, 443, 8080, 8443, 8000, 8888, 3000, 3001, 8081, 9090],
+  file: [21, 22, 445, 139, 137, 138, 2049, 873, 548, 111],
+  gaming: [27015, 27016, 27017, 27018, 3074, 1935, 3724, 7777, 30000, 25565, 2302, 4380]
+}
+
+const PORT_PRESET_LABELS: Record<PortPresetId, string> = {
+  common: 'Common',
+  web: 'Web',
+  file: 'File sharing',
+  gaming: 'Gaming',
+  custom: 'Custom range'
+}
+
 function parsePorts(input: string): number[] {
   return [...new Set(input.split(',').map((p) => p.trim()).filter(Boolean).map(Number).filter((n) => Number.isInteger(n) && n > 0 && n <= 65535))]
+}
+
+/** Expands a from-to range, capped at 1024 ports to keep scans reasonable. */
+function expandPortRange(from: number, to: number): number[] {
+  const start = Math.min(Math.max(Math.trunc(from), 1), 65535)
+  const end = Math.min(Math.max(Math.trunc(to), start), 65535)
+  if (end - start + 1 > 1024) return []
+  const ports: number[] = []
+  for (let p = start; p <= end; p++) ports.push(p)
+  return ports
+}
+
+function parseTags(input: string): string[] {
+  return [...new Set(input.split(',').map((t) => t.trim()).filter(Boolean))].slice(0, 10)
+}
+
+/** Stable per-device identity: MAC when known, otherwise the IP. */
+function deviceKey(host: HostResult): string {
+  return host.mac ?? host.ip
+}
+
+/** Detail dialog for editing a device's profile (name, notes, tags, favorite). */
+function DeviceDetailsModal({
+  host,
+  profile,
+  onUpdate,
+  onClose
+}: {
+  host: HostResult
+  profile: DeviceProfile | undefined
+  onUpdate: (patch: Partial<DeviceProfile>) => void
+  onClose: () => void
+}): React.JSX.Element {
+  const [customName, setCustomName] = useState(profile?.customName ?? '')
+  const [notes, setNotes] = useState(profile?.notes ?? '')
+  const [tags, setTags] = useState((profile?.tags ?? []).join(', '))
+  const [favorite, setFavorite] = useState(profile?.favorite ?? false)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-md space-y-4 rounded-xl border border-glassy-border bg-glassy-panel p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <DeviceTypeIcon type={host.deviceType} withLabel />
+              <Badge tone={host.status === 'online' ? 'good' : 'default'}>{host.status}</Badge>
+            </div>
+            <h3 className="mt-1 truncate text-lg font-bold text-glassy-text">{customName.trim() || host.hostname || host.ip}</h3>
+            <p className="font-mono text-xs text-glassy-muted">{host.ip}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-glassy-muted transition-colors hover:bg-glassy-panel2 hover:text-glassy-text" title="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid gap-1.5 rounded-lg border border-glassy-border bg-glassy-panel2/50 p-3 text-xs">
+          <div className="flex justify-between gap-2"><span className="text-glassy-muted">MAC</span><span className="truncate font-mono text-glassy-text">{host.mac ?? '—'}</span></div>
+          <div className="flex justify-between gap-2"><span className="text-glassy-muted">Vendor</span><span className="truncate text-glassy-text">{host.vendor ?? '—'}</span></div>
+          <div className="flex justify-between gap-2"><span className="text-glassy-muted">Hostname</span><span className="truncate text-glassy-text">{host.hostname ?? '—'}</span></div>
+          {host.openPorts.length > 0 ? (
+            <div className="flex justify-between gap-2">
+              <span className="shrink-0 text-glassy-muted">Open ports</span>
+              <span className="truncate text-glassy-text">
+                {host.openPorts.map((p) => `${p}/${portServiceName(p)}`).join(', ')}
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        <Field label="Custom name">
+          <Input value={customName} onChange={(e) => { setCustomName(e.target.value); onUpdate({ customName: e.target.value.trim() || null }) }} placeholder="e.g. Living Room TV" />
+        </Field>
+        <Field label="Tags" hint="Comma-separated, e.g. media, bedroom">
+          <Input value={tags} onChange={(e) => { setTags(e.target.value); onUpdate({ tags: parseTags(e.target.value) }) }} placeholder="media, bedroom" />
+        </Field>
+        <Field label="Notes">
+          <textarea
+            value={notes}
+            onChange={(e) => { setNotes(e.target.value); onUpdate({ notes: e.target.value.trim() || null }) }}
+            placeholder="Anything worth remembering about this device…"
+            className="glass-input w-full rounded-lg px-3 py-2 text-sm text-glassy-text caret-glassy-accent placeholder:text-glassy-muted/80"
+            rows={3}
+          />
+        </Field>
+
+        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-glassy-border bg-glassy-panel2/50 p-3 transition-colors hover:border-glassy-borderlight">
+          <input
+            type="checkbox"
+            checked={favorite}
+            onChange={(e) => { setFavorite(e.target.checked); onUpdate({ favorite: e.target.checked }) }}
+            className="h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-glassy-borderlight bg-glassy-panel2 transition-all checked:border-glassy-accent checked:bg-glassy-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-glassy-accent/60"
+          />
+          <span className="text-sm font-medium text-glassy-text">Mark as favorite</span>
+        </label>
+
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function ScannerScreen({
@@ -33,6 +176,8 @@ export function ScannerScreen({
   progress,
   summary,
   hosts,
+  devices,
+  onUpdateDevice,
   initialTarget,
   onTargetConsumed,
   onStatusChange
@@ -42,6 +187,8 @@ export function ScannerScreen({
   progress: ScanProgress | null
   summary: ScanSummary | null
   hosts: HostResult[]
+  devices: DeviceProfiles
+  onUpdateDevice: (key: string, patch: Partial<DeviceProfile>) => void
   initialTarget: string | null
   onTargetConsumed: () => void
   onStatusChange: (status: ScanStatus) => void
@@ -58,6 +205,19 @@ export function ScannerScreen({
   const [sortKey, setSortKey] = useState<SortKey>('ip')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
+  const [search, setSearch] = useState('')
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
+  const [filterType, setFilterType] = useState<DeviceTypeId | 'all'>('all')
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
+
+  const [portPreset, setPortPreset] = useState<PortPresetId>('common')
+  const [rangeFrom, setRangeFrom] = useState(1)
+  const [rangeTo, setRangeTo] = useState(1024)
+  const [portScanning, setPortScanning] = useState(false)
+  const [portProgress, setPortProgress] = useState<PortScanProgress | null>(null)
+
+  const [detailKey, setDetailKey] = useState<string | null>(null)
+
   useEffect(() => {
     if (initialTarget) {
       setTarget(initialTarget)
@@ -65,8 +225,17 @@ export function ScannerScreen({
     }
   }, [initialTarget, onTargetConsumed])
 
+  useEffect(() => {
+    const off = window.api.onScanEvent((ev) => {
+      if (ev.type === 'portProgress') setPortProgress(ev.progress)
+      if (ev.type === 'portDone') setPortProgress(null)
+    })
+    return off
+  }, [])
+
   const targetValid = VALID_TARGET.test(target.trim())
   const scanning = status === 'running' || status === 'paused'
+  const profiles = useMemo(() => new Map(Object.entries(devices)), [devices])
 
   const doScan = async (): Promise<void> => {
     if (!targetValid || scanning) return
@@ -94,15 +263,55 @@ export function ScannerScreen({
     }
   }
 
+  const runPortScan = async (): Promise<void> => {
+    const ips = hosts.filter((h) => h.status === 'online').map((h) => h.ip)
+    if (ips.length === 0 || portScanning) return
+    const ports = portPreset === 'custom' ? expandPortRange(rangeFrom, rangeTo) : PORT_PRESETS[portPreset]
+    if (ports.length === 0) return
+    setPortScanning(true)
+    setPortProgress(null)
+    try {
+      await window.api.scanPorts({ ips, ports, timeoutMs })
+    } finally {
+      setPortScanning(false)
+    }
+  }
+
   const onlineHosts = useMemo(() => hosts.filter((h) => h.status === 'online'), [hosts])
+
+  const displayName = (h: HostResult): string => {
+    const p = profiles.get(deviceKey(h))
+    return p?.customName?.trim() || h.hostname || h.vendor || h.ip
+  }
+
+  const filteredHosts = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return hosts.filter((h) => {
+      if (filterStatus !== 'all' && h.status !== filterStatus) return false
+      if (filterType !== 'all' && h.deviceType !== filterType) return false
+      const profile = profiles.get(deviceKey(h))
+      if (favoritesOnly && !profile?.favorite) return false
+      if (q) {
+        const haystack = [h.ip, h.hostname, h.vendor, h.mac, profile?.customName, ...(profile?.tags ?? [])]
+          .filter((s): s is string => Boolean(s))
+          .join(' ')
+          .toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      return true
+    })
+  }, [hosts, search, filterStatus, filterType, favoritesOnly, profiles])
 
   const sortedHosts = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1
-    return [...hosts].sort((a, b) => {
+    return [...filteredHosts].sort((a, b) => {
       let cmp = 0
       switch (sortKey) {
         case 'status':
           cmp = (a.status === 'online' ? 0 : 1) - (b.status === 'online' ? 0 : 1)
+          break
+        case 'device':
+          cmp = displayName(a).localeCompare(displayName(b))
           break
         case 'ip': {
           const pa = a.ip.split('.').map(Number)
@@ -115,11 +324,14 @@ export function ScannerScreen({
           }
           break
         }
-        case 'hostname':
-          cmp = (a.hostname ?? a.vendor ?? '').localeCompare(b.hostname ?? b.vendor ?? '')
-          break
         case 'mac':
           cmp = (a.mac ?? '').localeCompare(b.mac ?? '')
+          break
+        case 'type':
+          cmp = a.deviceType.localeCompare(b.deviceType)
+          break
+        case 'ports':
+          cmp = a.openPorts.length - b.openPorts.length
           break
         case 'latency':
           cmp = (a.latencyMs ?? Infinity) - (b.latencyMs ?? Infinity)
@@ -127,7 +339,7 @@ export function ScannerScreen({
       }
       return cmp * dir
     })
-  }, [hosts, sortKey, sortDir])
+  }, [filteredHosts, sortKey, sortDir, profiles])
 
   const toggleSort = (key: SortKey): void => {
     if (sortKey === key) {
@@ -137,6 +349,10 @@ export function ScannerScreen({
       setSortDir('asc')
     }
   }
+
+  const filtersActive = search.trim() !== '' || filterStatus !== 'all' || filterType !== 'all' || favoritesOnly
+  const detailHost = detailKey ? hosts.find((h) => deviceKey(h) === detailKey) : null
+  const rangeTooLarge = portPreset === 'custom' && (Math.max(1, Math.min(Math.max(rangeTo, rangeFrom), 65535)) - Math.min(Math.max(rangeFrom, 1), 65535) + 1) > 1024
 
   return (
     <div className="space-y-4">
@@ -194,7 +410,7 @@ export function ScannerScreen({
                     const n = Number(e.target.value)
                     if (!Number.isNaN(n)) field.set(Math.min(field.max, Math.max(field.min, n)))
                   }}
-                    className="glass-input w-full rounded-lg px-3 py-2 font-mono text-sm text-glassy-text caret-glassy-accent"
+                  className="glass-input w-full rounded-lg px-3 py-2 font-mono text-sm text-glassy-text caret-glassy-accent"
                 />
               </label>
             ))}
@@ -285,15 +501,107 @@ export function ScannerScreen({
         </Panel>
       ) : null}
 
+      {!scanning && onlineHosts.length > 0 ? (
+        <Panel className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider text-glassy-muted">TCP port scan</div>
+              <div className="mt-0.5 text-[11px] text-glassy-muted">
+                Probes the selected ports on all {onlineHosts.length} online device(s); open ports are tagged with their service.
+              </div>
+            </div>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="flex w-40 flex-col gap-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-glassy-muted">Preset</span>
+                <Select value={portPreset} onChange={(e) => setPortPreset(e.target.value as PortPresetId)}>
+                  {(Object.keys(PORT_PRESET_LABELS) as PortPresetId[]).map((id) => (
+                    <option key={id} value={id}>{PORT_PRESET_LABELS[id]}</option>
+                  ))}
+                </Select>
+              </label>
+              {portPreset === 'custom' ? (
+                <>
+                  <label className="flex w-24 flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-glassy-muted">From</span>
+                    <input
+                      type="number" min={1} max={65535} value={rangeFrom}
+                      onChange={(e) => setRangeFrom(Number(e.target.value))}
+                      className="glass-input w-full rounded-lg px-3 py-2 font-mono text-sm text-glassy-text caret-glassy-accent"
+                    />
+                  </label>
+                  <label className="flex w-24 flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-glassy-muted">To</span>
+                    <input
+                      type="number" min={1} max={65535} value={rangeTo}
+                      onChange={(e) => setRangeTo(Number(e.target.value))}
+                      className="glass-input w-full rounded-lg px-3 py-2 font-mono text-sm text-glassy-text caret-glassy-accent"
+                    />
+                  </label>
+                </>
+              ) : null}
+              <Button variant="primary" size="sm" onClick={() => void runPortScan()} disabled={portScanning || rangeTooLarge}>
+                <ScanLine className="h-3.5 w-3.5" />
+                {portScanning ? 'Scanning…' : 'Scan open ports'}
+              </Button>
+            </div>
+          </div>
+          {rangeTooLarge ? <p className="text-[11px] text-glassy-bad">Range too large — maximum 1024 ports per scan.</p> : null}
+          {portScanning && portProgress ? (
+            <ProgressBar
+              value={portProgress.scanned}
+              max={portProgress.total}
+              label={`${portProgress.scanned} / ${portProgress.total} hosts · ${portProgress.currentIp}`}
+            />
+          ) : null}
+        </Panel>
+      ) : null}
+
       <Panel className="p-0">
-        <div className="flex items-center justify-between border-b border-glassy-border px-4 py-2.5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-glassy-muted">
-            Results
-          </span>
-          <span className="flex items-center gap-2 text-xs text-glassy-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-glassy-border px-4 py-2.5">
+          <span className="text-xs font-semibold uppercase tracking-wider text-glassy-muted">Results</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-glassy-muted" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search IP, name, vendor, tag…"
+                spellCheck={false}
+                className="glass-input w-64 rounded-lg py-1.5 pl-8 pr-3 text-xs text-glassy-text caret-glassy-accent placeholder:text-glassy-muted/80"
+              />
+            </div>
+            <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as FilterStatus)} className="w-28 !py-1.5 !text-xs">
+              <option value="all">All status</option>
+              <option value="online">Online</option>
+              <option value="offline">Offline</option>
+            </Select>
+            <Select value={filterType} onChange={(e) => setFilterType(e.target.value as DeviceTypeId | 'all')} className="w-32 !py-1.5 !text-xs">
+              <option value="all">All types</option>
+              {(Object.keys(DEVICE_TYPE_META) as DeviceTypeId[]).map((t) => (
+                <option key={t} value={t}>{DEVICE_TYPE_META[t].label}</option>
+              ))}
+            </Select>
+            <button
+              type="button"
+              onClick={() => setFavoritesOnly((v) => !v)}
+              className={cn(
+                'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+                favoritesOnly
+                  ? 'border-glassy-accent/60 bg-glassy-accent/15 text-glassy-accent'
+                  : 'border-glassy-borderlight bg-glassy-panel2/60 text-glassy-muted hover:text-glassy-text'
+              )}
+            >
+              <Star className={cn('h-3 w-3', favoritesOnly && 'fill-current')} /> Favorites
+            </button>
+          </div>
+        </div>
+        <div className="flex items-center justify-between border-b border-glassy-border px-4 py-1.5 text-[11px] text-glassy-muted">
+          <span>
             <Badge tone="good">{onlineHosts.length} online</Badge>
-            <Badge tone="default">{hosts.length} total</Badge>
+            <Badge tone="default" className="ml-1.5">{filteredHosts.length} shown</Badge>
+            {filtersActive ? <Badge tone="accent" className="ml-1.5">filtered</Badge> : null}
           </span>
+          <span className="text-glassy-muted">Click a row to name, tag or favorite a device.</span>
         </div>
         {hosts.length === 0 ? (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
@@ -302,8 +610,13 @@ export function ScannerScreen({
               {scanning ? 'Probing addresses…' : 'No results yet. Configure a target and start scanning.'}
             </p>
           </div>
+        ) : filteredHosts.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+            <Search className="h-8 w-8 text-glassy-muted/60" />
+            <p className="text-sm text-glassy-muted">No devices match the current filters.</p>
+          </div>
         ) : (
-          <div className="max-h-[26rem] overflow-y-auto">
+          <div className="max-h-[24rem] overflow-y-auto">
             <table className="w-full border-collapse text-left text-sm">
               <thead className="table-header sticky top-0 z-10">
                 <tr className="text-xs uppercase tracking-wider text-glassy-muted">
@@ -329,7 +642,7 @@ export function ScannerScreen({
                         </button>
                       </th>
                     ) : (
-                      <th key={label} className="px-4 py-2 font-semibold">
+                      <th key={`h-${label}`} className="px-4 py-2 font-semibold">
                         {label}
                       </th>
                     )
@@ -337,36 +650,86 @@ export function ScannerScreen({
                 </tr>
               </thead>
               <tbody className="divide-y divide-glassy-border">
-                {sortedHosts.map((host) => (
-                  <tr key={host.ip} className="transition-colors hover:bg-glassy-panel2/40">
-                    <td className="px-4 py-2">
-                      <Badge tone={host.status === 'online' ? 'good' : 'default'}>{host.status}</Badge>
-                    </td>
-                    <td className="px-4 py-2 font-mono text-glassy-text">{host.ip}</td>
-                    <td className="max-w-44 truncate px-4 py-2 text-glassy-text">{host.hostname ?? host.vendor ?? '—'}</td>
-                    <td className="max-w-52 px-4 py-2">
-                      <span className="font-mono text-xs text-glassy-text">{host.mac ?? '—'}</span>
-                      {host.vendor ? <span className="ml-1.5 text-xs text-glassy-muted">({host.vendor})</span> : null}
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs text-glassy-muted">
-                      {host.latencyMs !== null ? `${host.latencyMs} ms` : '—'}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span className="flex flex-wrap gap-1">
-                        {host.via.map((v) => (
-                          <span key={v} className="rounded bg-glassy-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-glassy-accent">
-                            {v}
+                {sortedHosts.map((host) => {
+                  const key = deviceKey(host)
+                  const profile = profiles.get(key)
+                  const favorite = profile?.favorite ?? false
+                  return (
+                    <tr key={key} className="cursor-pointer transition-colors hover:bg-glassy-panel2/40" onClick={() => setDetailKey(key)}>
+                      <td className="px-2 py-2 text-center">
+                        <button
+                          type="button"
+                          title={favorite ? 'Remove favorite' : 'Mark favorite'}
+                          onClick={(e) => { e.stopPropagation(); onUpdateDevice(key, { favorite: !favorite }) }}
+                          className="p-0.5 text-glassy-muted transition-colors hover:text-glassy-accent"
+                        >
+                          <Star className={cn('h-3.5 w-3.5', favorite && 'fill-current text-glassy-accent')} />
+                        </button>
+                      </td>
+                      <td className="px-4 py-2">
+                        <Badge tone={host.status === 'online' ? 'good' : 'default'}>{host.status}</Badge>
+                      </td>
+                      <td className="max-w-44 truncate px-4 py-2 text-glassy-text">
+                        <span className="flex items-center gap-2">
+                          <DeviceTypeIcon type={host.deviceType} />
+                          <span className="truncate">{displayName(host)}</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 font-mono text-glassy-text">{host.ip}</td>
+                      <td className="max-w-52 px-4 py-2">
+                        <span className="font-mono text-xs text-glassy-text">{host.mac ?? '—'}</span>
+                        {host.vendor ? <span className="ml-1.5 text-xs text-glassy-muted">({host.vendor})</span> : null}
+                      </td>
+                      <td className="px-4 py-2">
+                        <DeviceTypeIcon type={host.deviceType} withLabel className="text-glassy-accent/70" />
+                      </td>
+                      <td className="max-w-36 px-4 py-2">
+                        {host.openPorts.length > 0 ? (
+                          <span className="flex flex-wrap gap-1">
+                            {host.openPorts.slice(0, 4).map((p) => (
+                              <span
+                                key={p}
+                                title={`${p} · ${portServiceName(p)}`}
+                                className="rounded bg-glassy-good/10 px-1.5 py-0.5 font-mono text-[10px] text-glassy-good"
+                              >
+                                {p}
+                              </span>
+                            ))}
+                            {host.openPorts.length > 4 ? <span className="text-[10px] text-glassy-muted">+{host.openPorts.length - 4}</span> : null}
                           </span>
-                        ))}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                        ) : (
+                          <span className="text-glassy-muted/60">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 font-mono text-xs text-glassy-muted">
+                        {host.latencyMs !== null ? `${host.latencyMs} ms` : '—'}
+                      </td>
+                      <td className="px-4 py-2">
+                        <span className="flex flex-wrap gap-1">
+                          {host.via.map((v) => (
+                            <span key={v} className="rounded bg-glassy-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase text-glassy-accent">
+                              {v}
+                            </span>
+                          ))}
+                        </span>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
       </Panel>
+
+      {detailHost ? (
+        <DeviceDetailsModal
+          host={detailHost}
+          profile={profiles.get(deviceKey(detailHost))}
+          onUpdate={(patch) => onUpdateDevice(deviceKey(detailHost), patch)}
+          onClose={() => setDetailKey(null)}
+        />
+      ) : null}
     </div>
   )
 }

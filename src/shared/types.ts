@@ -37,6 +37,25 @@ export interface ScanOptions {
 /** Online/offline state of a scanned host. */
 export type HostStatus = 'online' | 'offline'
 
+/** Best-effort device type classification (Phase 2, heuristic). */
+export type DeviceTypeId =
+  | 'router'
+  | 'switch'
+  | 'printer'
+  | 'nas'
+  | 'camera'
+  | 'tv'
+  | 'speaker'
+  | 'phone'
+  | 'tablet'
+  | 'laptop'
+  | 'computer'
+  | 'console'
+  | 'rpi'
+  | 'server'
+  | 'smart-device'
+  | 'unknown'
+
 /** A discovered host. */
 export interface HostResult {
   ip: string
@@ -48,8 +67,26 @@ export interface HostResult {
   latencyMs: number | null
   /** Discovery methods that detected the host (e.g. ["icmp", "tcp"]). */
   via: string[]
+  /** Best-effort device type guess from vendor/hostname/gateway heuristics. */
+  deviceType: DeviceTypeId
+  /** Open TCP ports found by the built-in port scanner. */
+  openPorts: number[]
   firstSeen: string
   lastSeen: string
+}
+
+/** Options for a standalone TCP port scan over online hosts. */
+export interface PortScanOptions {
+  ips: string[]
+  ports: number[]
+  timeoutMs: number
+}
+
+/** Live counts pushed while a port scan runs. */
+export interface PortScanProgress {
+  scanned: number
+  total: number
+  currentIp: string
 }
 
 /** Live counts pushed while a scan runs. */
@@ -75,6 +112,8 @@ export type ScanEvent =
   | { type: 'host'; host: HostResult }
   | { type: 'done'; summary: ScanSummary }
   | { type: 'log'; level: 'info' | 'warn' | 'error'; message: string }
+  | { type: 'portProgress'; progress: PortScanProgress }
+  | { type: 'portDone'; scanned: number; open: number }
 
 /** Overall state machine of the scanner as seen from the UI. */
 export type ScanStatus = 'idle' | 'running' | 'paused' | 'finished' | 'cancelled'
@@ -94,6 +133,17 @@ export interface AppSettings {
   /** Version the user chose to skip; its prompt will not show again. */
   skipUpdateVersion: string | null
 }
+
+/** User-editable profile for a known device (keyed by MAC in devices.json). */
+export interface DeviceProfile {
+  customName: string | null
+  notes: string | null
+  tags: string[]
+  favorite: boolean
+}
+
+/** All device profiles, keyed by the normalized MAC (or IP when no MAC). */
+export type DeviceProfiles = Record<string, DeviceProfile>
 
 /** Live phase of the built-in updater (electron-updater / GitHub Releases). */
 export type UpdatePhase =
