@@ -313,6 +313,20 @@ function parsePtrAnswer(msg: Buffer): string | null {
 }
 
 /**
+ * Some devices answer mDNS with a placeholder name when their hostname was
+ * never configured (Fire TV / Echo sticks report "none", "none-3", etc.).
+ * Those are not useful to display and must not hide the vendor fallback.
+ */
+const MDNS_PLACEHOLDER = /^(none(-\d+)?|localhost|undefined|unknown|unconfigured)$/i
+
+/** True when `name` looks like a real hostname worth displaying. */
+function isUsableHostname(name: string | null): name is string {
+  if (!name) return false
+  if (MDNS_PLACEHOLDER.test(name)) return false
+  return /^[\w.-]{1,253}$/.test(name)
+}
+
+/**
  * Best-effort mDNS reverse (PTR) lookup for `ip` via the standard mDNS
  * multicast group. Many LAN devices that never answer NetBIOS or classic
  * reverse-DNS (AVM routers, repeaters, smart-home and Apple gear) do answer
@@ -682,10 +696,11 @@ export class ScanManager extends EventEmitter {
     }
 
     // Name resolution: reverse DNS first; on a typical LAN there are no PTR
-    // records, so fall back to mDNS and then to the platform's NetBIOS/mDNS
-    // helpers (each fails fast when its tool is absent).
+    // records, so prefer the platform's classic NetBIOS name (Windows) or
+    // mDNS CLI helpers (Linux), and only then fall back to the node-level
+    // mDNS lookup. Placeholder mDNS names are rejected so the UI's vendor
+    // fallback still shows for devices that never got a real hostname.
     let hostname: string | null = online ? await dnsPromise : null
-    if (online && !hostname) hostname = await mdnsPromise
     if (online && !hostname) {
       if (isLocal) {
         hostname = os.hostname()
@@ -698,10 +713,14 @@ export class ScanManager extends EventEmitter {
               : []
         for (const lookup of lookups) {
           const name = await lookup(ip, nameTimeout, signal)
-          if (name) {
+          if (isUsableHostname(name)) {
             hostname = name
             break
           }
+        }
+        if (!hostname) {
+          const name = await mdnsPromise
+          if (isUsableHostname(name)) hostname = name
         }
       }
     }
