@@ -18,7 +18,7 @@ nsis:
   allowToChangeInstallationDirectory: true
   artifactName: Glassy-IP-Scanner-Setup-${version}.${ext}
 portable:
-  artifactName: Glassy-IP-Scanner-${version}.${ext}
+  artifactName: Glassy-IP-Scanner-${version}-${arch}.${ext}
 mac:
   icon: build/icon.png
   target:

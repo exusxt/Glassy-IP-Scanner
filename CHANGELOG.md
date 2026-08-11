@@ -5,7 +5,19 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.1.10] - 2026-08-11
+## [v0.1.11] - 2026-08-11
+
+### Fixed
+
+- MAC vendor lookup no longer shows "Locally administered"/"Multicast" for real devices: prefixes in the OUI database that legitimately have the multicast/local bit set (e.g. QEMU's 52:54:00, Digital Equipment's AA:00:00, PearPC's DE:AD:CA) are matched again, and the classification is only applied when no database entry exists
+
+### Added
+
+- Windows arm64 support: the NSIS installer is now combined (x64 + arm64 in one setup, so installed auto-updates keep working) and the portable build is split into separate x64 and arm64 executables instead of one double-sized combined file
+
+### Changed
+
+- Portable self-update downloads the arch-specific portable exe (…-x64.exe / …-arm64.exe) instead of an un-suffixed name
 
 ### Fixed
 

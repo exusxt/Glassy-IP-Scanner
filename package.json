@@ -1,7 +1,7 @@
 {
   "name": "glassy-ip-scanner",
   "productName": "Glassy IP Scanner",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "A modern, fast, and lightweight network discovery tool with a glassmorphic interface.",
   "homepage": "https://github.com/exusxt/Glassy-IP-Scanner",
   "main": "./out/main/index.js",
@@ -15,6 +15,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "dist": "npm run build && electron-builder",
     "dist:win": "npm run build && electron-builder --win",
+    "dist:win:nsis": "npm run build && electron-builder --win --x64 --arm64 --config.win.target=nsis",
+    "dist:win:portable:x64": "npm run build && electron-builder --win --x64 --config.win.target=portable",
+    "dist:win:portable:arm64": "npm run build && electron-builder --win --arm64 --config.win.target=portable",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:mac:x64": "npm run build && electron-builder --mac --x64",
     "dist:mac:arm64": "npm run build && electron-builder --mac --arm64",

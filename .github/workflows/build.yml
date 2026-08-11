@@ -78,10 +78,47 @@ jobs:
           fi
           rm -f "$notes_file"
 
-      - name: Package and publish installers
+      - name: Package and publish installers (macOS/Linux)
+        if: matrix.os != 'windows-latest'
         env:
           GH_TOKEN: ${{ github.token }}
         run: npx electron-builder ${{ matrix.args }} --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+
+      # Windows is built in separate passes so the artifacts come out as intended:
+      # the NSIS installer is combined (x64 + arm64 in one exe; electron-updater
+      # has no arch-suffixed update info on Windows, so latest.yml must point at
+      # a single installer), while the portable exe is split per-arch because a
+      # combined portable would double its size. Building both archs for portable
+      # in one call also emits an unwanted combined file.
+      #
+      # Transition note: v0.1.11 also publishes the combined portable once, so
+      # existing 0.1.10 portable installs (whose updater requests the un-suffixed
+      # name) can auto-update. A single build with both archs emits exactly the
+      # combined, x64 and arm64 portables, so that one pass covers the release.
+      # Later versions drop it and keep only the per-arch portable builds.
+      - name: Package and publish Windows NSIS (combined x64+arm64)
+        if: matrix.os == 'windows-latest'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npx electron-builder --win --x64 --arm64 --config.win.target=nsis --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+
+      - name: Package and publish Windows portable (combined + x64 + arm64, v0.1.11 only)
+        if: matrix.os == 'windows-latest' && startsWith(github.ref, 'refs/tags/v0.1.11')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npx electron-builder --win --x64 --arm64 --config.win.target=portable --publish always
+
+      - name: Package and publish Windows portable (x64)
+        if: matrix.os == 'windows-latest' && !startsWith(github.ref, 'refs/tags/v0.1.11')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npx electron-builder --win --x64 --config.win.target=portable --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
+
+      - name: Package and publish Windows portable (arm64)
+        if: matrix.os == 'windows-latest' && !startsWith(github.ref, 'refs/tags/v0.1.11')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npx electron-builder --win --arm64 --config.win.target=portable --publish ${{ startsWith(github.ref, 'refs/tags/v') && 'always' || 'never' }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v5

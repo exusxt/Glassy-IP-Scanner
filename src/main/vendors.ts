@@ -742,11 +742,10 @@ export function lookupVendor(mac: string | null | undefined): string | null {
   const normalized = normalizeMac(mac)
   if (normalized.length !== 12) return null
 
-  if (normalized === 'FFFFFFFFFFFF') return 'Broadcast'
-  const firstByte = Number.parseInt(normalized.slice(0, 2), 16)
-  if (firstByte & 0x01) return 'Multicast'
-  if (firstByte & 0x02) return 'Locally administered'
-
+  // Look the prefix up in the OUI database first: some registered prefixes
+  // legitimately have the multicast/local bits set (e.g. QEMU's 52:54:00,
+  // Digital Equipment's AA:00:00), so they must win over the generic
+  // classification below.
   for (const len of [9, 7, 6]) {
     const bucket = FULL_OUI.get(len)
     if (bucket) {
@@ -754,6 +753,12 @@ export function lookupVendor(mac: string | null | undefined): string | null {
       if (vendor) return vendor
     }
   }
+  const curated = OUI[normalized.slice(0, 6)]
+  if (curated) return curated
 
-  return OUI[normalized.slice(0, 6)] ?? null
+  if (normalized === 'FFFFFFFFFFFF') return 'Broadcast'
+  const firstByte = Number.parseInt(normalized.slice(0, 2), 16)
+  if (firstByte & 0x01) return 'Multicast'
+  if (firstByte & 0x02) return 'Locally administered'
+  return null
 }
