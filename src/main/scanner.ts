@@ -205,6 +205,57 @@ function tcpProbe(
   })
 }
 
+/**
+ * Collects the DNS servers to ask for PTR lookups: the system's configured
+ * servers plus the default gateway (the router, which on home/office LANs
+ * holds the authoritative PTR records for every DHCP client, e.g. fritz.box).
+ * Node's built-in resolver only consults `dns.getServers()`, which can be a
+ * loopback filter (AdGuard/pi-hole on 127.0.0.1) that answers NXDOMAIN for
+ * local reverse queries. Returns an ordered, de-duplicated IPv4 list.
+ */
+async function discoverDnsServers(): Promise<string[]> {
+  const servers: string[] = []
+  const add = (s: string): void => {
+    if (s && isValidIpv4(s) && !servers.includes(s)) servers.push(s)
+  }
+  const gw = await defaultGateway()
+  if (gw) add(gw)
+  for (const s of dns.getServers()) add(s)
+  return servers
+}
+
+/** Resolves the IPv4 default gateway from the OS routing table. */
+async function defaultGateway(): Promise<string | null> {
+  try {
+    if (process.platform === 'win32') {
+      const out = await runCmd('route', ['print', '-4', '0.0.0.0'], 4000)
+      const m = /^\s*0\.0\.0\.0\s+0\.0\.0\.0\s+(\d{1,3}(?:\.\d{1,3}){3})/m.exec(out)
+      return m ? m[1] : null
+    }
+    if (process.platform === 'linux') {
+      const out = await runCmd('ip', ['route', 'show', 'default'], 4000)
+      const m = /default\s+via\s+(\d{1,3}(?:\.\d{1,3}){3})/.exec(out)
+      return m ? m[1] : null
+    }
+    if (process.platform === 'darwin') {
+      const out = await runCmd('route', ['-n', 'get', 'default'], 4000)
+      const m = /gateway:\s+(\d{1,3}(?:\.\d{1,3}){3})/.exec(out)
+      return m ? m[1] : null
+    }
+  } catch {
+    // best effort
+  }
+  return null
+}
+
+/** Caches the discovered DNS servers across hosts in one scan. */
+let dnsServersPromise: Promise<string[]> | null = null
+
+function getDnsServers(): Promise<string[]> {
+  dnsServersPromise ??= discoverDnsServers()
+  return dnsServersPromise
+}
+
 function reverseDns(ip: string, timeoutMs: number, signal: AbortSignal): Promise<string | null> {
   return new Promise((resolve) => {
     let done = false
@@ -218,10 +269,21 @@ function reverseDns(ip: string, timeoutMs: number, signal: AbortSignal): Promise
     const timer = setTimeout(() => finish(null), timeoutMs)
     const onAbort = (): void => finish(null)
     signal.addEventListener('abort', onAbort, { once: true })
-    dns.promises
-      .reverse(ip)
-      .then((names) => finish(names[0]?.replace(/\.$/, '') ?? null))
-      .catch(() => finish(null))
+    void (async () => {
+      const servers = await getDnsServers()
+      if (done) return
+      const resolver = new dns.promises.Resolver()
+      try {
+        resolver.setServers(servers.length > 0 ? servers : dns.getServers())
+      } catch {
+        finish(null)
+        return
+      }
+      resolver
+        .reverse(ip)
+        .then((names) => finish(names[0]?.replace(/\.$/, '') ?? null))
+        .catch(() => finish(null))
+    })()
   })
 }
 

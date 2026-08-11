@@ -5,6 +5,16 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.9] - 2026-08-11
+
+### Added
+
+- Reverse-DNS lookups now also query the default gateway (the router), which holds the PTR records for every DHCP client on home/office LANs. Many more hostnames are resolved — on a typical fritz.box network nearly every device shows its DNS name (e.g. "exus-nas.fritz.box") instead of being listed by MAC/vendor only
+
+### Fixed
+
+- Reverse-DNS no longer silently fails when the system DNS points at a loopback filter such as AdGuard/pi-hole on 127.0.0.1, which answers NXDOMAIN for local PTR queries
+
 ## [v0.1.8] - 2026-08-11
 
 ### Fixed
