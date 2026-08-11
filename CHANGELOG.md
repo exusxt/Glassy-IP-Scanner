@@ -5,6 +5,15 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Device type detection misclassified many devices as routers: the OUI vendor rules matched multi-category brands (ASUSTek, TP-Link, Huawei, ZTE) that also make laptops, phones and smart plugs — about 2,200 of the 2,780 router-matching OUI prefixes were false positives. The router bucket is now restricted to dedicated networking vendors, and those brands fall back to their real device type via hostname (e.g. "RT-AC86U" → router, "SM-G991B" → phone, "TP-LINK_Smart Plug" → smart device)
+- PlayStation consoles are now detected: Sony OUIs in the database are mostly plain "Sony" or "Sony Computer Entertainment" (PlayStation 3/4 era), which the old `sony interactive` rule missed. The console rule now covers all Sony variants and bare "switch" hostnames (Nintendo Switch); Xbox and Steam Deck are covered too
+- "netgear-switch"/"unifi-switch" hostnames are classified as network switches instead of routers: the switch rule now runs before the router rule, which also contains the "netgear" brand
+- Google Nest Mini/Audio/Hub now show as speakers, Amazon Fire tablets (bare "fire" hostname) as tablets, Samsung TVs/LG TVs via their hostname, and Samsung tablets via the SM-T/SM-X model prefixes
+
 ## [v0.2.0] - 2026-08-11
 
 ### Added
