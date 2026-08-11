@@ -74,16 +74,25 @@ async function checkPortable(): Promise<void> {
   try {
     const cfg = publishRepo()
     if (!cfg) throw new Error('update feed not configured')
-    // Resolve the latest release through the github.com web endpoint instead of
-    // the API: /releases/latest redirects to /releases/tag/<tag>, and the final
-    // URL reveals the tag. Unlike the API this has no unauthenticated rate
-    // limit, so frequent checks never start failing on shared IPs.
-    const res = await net.fetch(`https://github.com/${cfg.owner}/${cfg.repo}/releases/latest`, {
+    // Read the latest release tag from the Atom feed instead of the GitHub API:
+    // the web endpoints have no unauthenticated rate limit, so frequent checks
+    // never start failing on shared IPs. (The /releases/latest redirect cannot
+    // be used here: Electron's net.fetch does not expose the redirect target.)
+    const res = await net.fetch(`https://github.com/${cfg.owner}/${cfg.repo}/releases.atom`, {
       redirect: 'follow',
       headers: { 'User-Agent': 'Glassy-IP-Scanner' }
     })
     if (!res.ok) throw new Error(`update check failed (HTTP ${res.status})`)
-    const tag = /\/releases\/tag\/([^/?#]+)/.exec(res.url)?.[1] ?? ''
+    const feed = await res.text()
+    // The Atom feed lists published releases newest-first; pick the highest
+    // tag so an out-of-order publish can never offer a downgrade.
+    let tag = ''
+    const re = /<entry>[\s\S]*?<title>\s*([^<]+?)\s*<\/title>/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(feed)) !== null) {
+      const t = m[1].trim()
+      if (semverGt(t, tag)) tag = t
+    }
     if (!tag || !semverGt(tag, app.getVersion())) {
       setPhase('not-available')
       return

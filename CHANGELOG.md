@@ -5,6 +5,13 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.8] - 2026-08-11
+
+### Fixed
+
+- Update check now works again: it reads the latest release tag from the GitHub Atom feed instead of following the /releases/latest redirect, which Electron's net.fetch cannot resolve (the response URL was always empty, so the app incorrectly reported "up to date")
+- The updater picks the highest version in the feed, so an out-of-order publish can never offer a downgrade
+
 ## [v0.1.7] - 2026-08-11
 
 ### Fixed
