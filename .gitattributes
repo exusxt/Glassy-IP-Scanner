@@ -1,0 +1,3 @@
+# Force LF for the OUI data file: the vendor parser must see consistent
+# line endings regardless of the checkout host (CRLF breaks the regex).
+src/main/oui-data.txt text eol=lf

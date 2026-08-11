@@ -11,7 +11,10 @@ import ouiData from './oui-data.txt?raw'
 // prefixes are 6, 7 or 9 hex digits. Store them bucketed by length so the
 // longest (most specific) prefix wins.
 const FULL_OUI = new Map<number, Map<string, string>>()
-for (const line of ouiData.split('\n')) {
+// Split on both LF and CRLF: the data file may be checked out with either
+// convention depending on the build host, and a trailing '\r' breaks the
+// line regex below ('.' does not match CR).
+for (const line of ouiData.split(/\r?\n/)) {
   const match = /^([0-9A-F]{6}(?:[0-9A-F]{1,3})?)[ \t]+(.+)$/.exec(line)
   if (match) {
     const prefix = match[1]

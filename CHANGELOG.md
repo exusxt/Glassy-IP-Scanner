@@ -5,6 +5,12 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.1.12] - 2026-08-11
+
+### Fixed
+
+- MAC vendor lookup finally works again in the released installers: the bundled OUI data is parsed line by line, and on Windows build hosts the data file is checked out with CRLF line endings, so every line ended in a stray `\r` that the parser's regex rejected. Almost no vendor was displayed even though the database was shipped intact. The parser now splits on LF and CRLF alike, and `.gitattributes` pins the data file to LF so Windows and CI checkouts stay consistent
+
 ## [v0.1.11] - 2026-08-11
 
 ### Fixed
