@@ -5,6 +5,14 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Device type detection no longer labels every device on a Fritz!Box (and similar) network as "router": reverse-DNS returns FQDNs like `PS5-2681A0.fritz.box`, and the router rule matched the `fritz` in the domain suffix. Classification now uses only the first hostname label, so `PS5-…` → console, `exus-nas-…` → NAS, `iPhone` → phone, `DESKTOP-…` → computer, `lwip0`/Tuya → smart device, and only the actual gateway (plus dedicated networking brands) → router
+- Windows VMs with Hyper-V virtual NICs (OUI vendor "Microsoft") are no longer shown as consoles: plain "Microsoft" is classified as server, while Xbox consoles are still caught by their hostname ("XBOX", "XboxOne")
+- Added hostname rules for common homelab names: `adguard`, `3cx`/`pbx`, `hv-…` and `wks` now classify as server/computer; HONOR/Huawei phones are recognized
+
 ## [v0.2.1] - 2026-08-11
 
 ### Fixed

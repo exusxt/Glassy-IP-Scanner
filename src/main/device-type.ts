@@ -5,12 +5,19 @@
  * unambiguous ("PS5", "Samsung TV", "DESKTOP-ABC"), then vendor fingerprints,
  * then the gateway heuristic, then "unknown".
  *
+ * Hostnames arrive as full reverse-DNS names ("PS5-2681A0.fritz.box",
+ * "DESKTOP-I93POOA.lan"), so only the first label (before the first dot) is
+ * used for matching. Matching the whole string would let the router's DNS
+ * suffix (e.g. ".fritz.box") or a shared ".lan" domain leak into every rule.
+ *
  * Vendor fingerprints are deliberately narrow: only brands whose products are
  * overwhelmingly networking gear are typed as routers. Consumer-electronics
  * vendors that make everything from laptops to phones to smart plugs (ASUS,
- * TP-Link, Huawei, ZTE, Samsung, LG…) are excluded from the router bucket so a
- * WiFi card, phone or plug is never mislabelled; those devices are expected to
- * be caught by their hostname instead.
+ * TP-Link, Huawei, ZTE, Samsung, LG, Apple…) are excluded from the router
+ * bucket so a WiFi card, phone or plug is never mislabelled; those devices are
+ * expected to be caught by their hostname instead. Plain "Microsoft" is typed
+ * as server because it is the OUI of Hyper-V virtual NICs; Xbox consoles are
+ * caught by their hostname ("XBOX", "XboxOne", …) before that.
  */
 
 import type { DeviceTypeId } from '../shared/types'
@@ -39,15 +46,15 @@ const HOSTNAME_RULES: Rule[] = [
   { type: 'printer', re: /(printer|print[-_. ]?server|inkjet|laserjet|deskjet|officejet|photosmart|\bbrother\b|\bcanon\b|\bepson\b|\bhp-)/i },
   { type: 'camera', re: /(camera|cctv|\bdvr\b|\bnvr\b|ipcam|cam[-_. ]?\d|hikvision|reolink|amcrest|wyze|nest[-_. ]cam|axis-)/i },
   { type: 'nas', re: /(nas|synology|qnap|wdmycloud|mycloud|ready.?nas|\bstorage\b|diskstation|fileserver|file[-_. ]?server)/i },
-  { type: 'server', re: /(server|proxmox|esxi|unraid|vcenter|docker|kube|hyper-?v|dedicated|mail[-_. ]|dns[-_. ]|web[-_. ])/i },
+  { type: 'server', re: /(server|proxmox|esxi|unraid|vcenter|docker|kube|hyper-?v|dedicated|mail[-_. ]|dns[-_. ]|web[-_. ]|adguard|\b3cx\b|\bpbx\b|hv[-_. ]\d)/i },
   { type: 'rpi', re: /(raspberry|raspberri|rpi|^pi[0-9][-_.]|^pigpio)/i },
   { type: 'console', re: /(xbox|playstation|\bps\d\b|\bns-|nintendo|steamdeck|\bswitch\b)/i },
   { type: 'tv', re: /(samsung[ _-]?tv|lg[ _-]?tv|hisense|bravia|\btv[-_. ]?\d|roku|firetv|fire-tv|chromecast|androidtv|android-tv|smarttv|\btelly\b|appletv|apple-tv)/i },
   { type: 'speaker', re: /(\becho\b|alexa|homepod|sonos|googlehome|google-home|nest[-_. ]?(mini|audio|hub|display)|soundbar)/i },
-  { type: 'phone', re: /(^sm-[gjnmafs]\d|^gt-i|^pixel[- ]|^nexus|iphone|^android[-_]|galaxy[ _-]?[a-z]|redmi|poco|oneplus|oppo|vivo)/i },
+  { type: 'phone', re: /(^sm-[gjnmafs]\d|^gt-i|^pixel[- ]|^nexus|iphone|^android[-_]|galaxy[ _-]?[a-z]|redmi|poco|honor|huawei|oneplus|oppo|vivo)/i },
   { type: 'tablet', re: /(ipad|^sm-[tx]\d|tab-s\d|tab-a\d|tabpro|fire[-_. ]?(tablet|hd|\d)|^fire$|kindle|galaxy[ _-]?tab|matepad|surface-pro)/i },
   { type: 'laptop', re: /(laptop|latitude|inspiron|thinkpad|\bxps[- ]|macbook|surface-laptop|surface-[a-z0-9]|elitebook|probook|zenbook|vivobook)/i },
-  { type: 'computer', re: /(desktop|^desktop-|^pc[-_.]|\bmsi\b|gaming[-_. ]?pc|workstation|mini[-_. ]?pc|intel-nuc|macmini|\bimac\b|mac-pro)/i },
+  { type: 'computer', re: /(desktop|^desktop-|^pc[-_.]|\bmsi\b|gaming[-_. ]?pc|workstation|mini[-_. ]?pc|intel-nuc|macmini|\bimac\b|mac-pro|\bwks\b)/i },
   { type: 'smart-device', re: /(thermostat|ecobee|nest[-_. ]|^nest$|plug|bulb|smartplug|smart[-_. ]?(plug|bulb|switch|home)|irrigat|sprinkler|vacuum|robot|sensor|hub-|bridge|\badapter\b|kasa)/i }
 ]
 
@@ -68,9 +75,9 @@ const VENDOR_RULES: Rule[] = [
   { type: 'camera', re: /hikvision|amcrest|dahua|reolink|axis communications|wyze|swann/ },
   { type: 'switch', re: /cisco|arista|juniper|extreme networks|brocade/ },
   { type: 'tv', re: /roku|hisense|tcl|vizio|sony visual|bravia|lg electronics/ },
-  { type: 'console', re: /sony|nintendo|microsoft|valve/ },
+  { type: 'console', re: /sony|nintendo|valve/ },
   { type: 'rpi', re: /raspberry/ },
-  { type: 'server', re: /vmware|qemu|parallels|virtualbox|oracle|supermicro|dell|hewlett.?packard enterprise/ },
+  { type: 'server', re: /vmware|qemu|parallels|virtualbox|oracle|supermicro|dell|hewlett.?packard enterprise|microsoft/ },
   { type: 'speaker', re: /sonos|amazon technologies|google|harman/ },
   { type: 'smart-device', re: /signify|philips|hue|ikea|tuya|espressif|silicon labs|silabs|texas instruments|garmin|fitbit|samsung|lg/ },
   { type: 'computer', re: /intel|lenovo|msi|gigabyte|acer|medion|frameworx|apple/ },
@@ -83,7 +90,10 @@ const VENDOR_RULES: Rule[] = [
  * "unknown" as the fallback.
  */
 export function detectDeviceType(input: DeviceTypeInput): DeviceTypeId {
-  const hostname = input.hostname?.toLowerCase() ?? ''
+  // Reverse-DNS returns FQDNs ("PS5-2681A0.fritz.box"). Only the first label
+  // is the device's own name; the domain suffix is the router's and must not
+  // feed the rules (e.g. "fritz" in ".fritz.box" must not mean "router").
+  const hostname = (input.hostname?.toLowerCase() ?? '').split('.')[0]
   const vendor = input.vendor?.toLowerCase() ?? ''
   for (const rule of HOSTNAME_RULES) {
     if (rule.re.test(hostname)) return rule.type
