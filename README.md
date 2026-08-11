@@ -37,7 +37,7 @@ Automatically identify devices on your network and display:
 * 🟡 Open ports (shown after running the built-in port scanner)
 * ❌ Operating system hints
 * ✅ Network interface information
-* 🟡 First-seen and last-seen timestamps (recorded, not shown in the UI)
+* 🟡 First-seen and last-seen timestamps (recorded; shown in the monitoring activity feed)
 
 ### 🌐 Network Discovery Methods
 
@@ -109,36 +109,37 @@ Provide a clean overview of the network.
 
 * ✅ Total devices discovered
 * ✅ Online/offline devices
-* ❌ New devices
-* ❌ Device categories
+* ✅ New devices
+* ✅ Device categories
 * 🟡 Open services (shown per-device in the device detail dialog)
 * 🟡 Network latency (per-device latency, no aggregate)
 * ✅ Scan duration
 * ❌ Network utilization statistics
 * ✅ Recently discovered devices
+* ✅ New-device / online / offline activity feed
 
 ### 🗺️ Network Map
 
 Visualize discovered devices instead of displaying only a table.
 
-* ❌ Router/gateway detection
-* ❌ Device relationships
-* ❌ Network topology
-* ❌ Device grouping
-* ❌ Interactive network graph
-* ❌ Zoom and pan
-* ❌ Device details on selection
+* ✅ Router/gateway detection
+* 🟡 Device relationships (star topology from the gateway; no switch-link detection)
+* 🟡 Network topology (radial LAN map, single hop)
+* 🟡 Device grouping (colored and grouped by device type)
+* ✅ Interactive network graph
+* ✅ Zoom and pan
+* ✅ Device details on selection
 
 ### 🔔 Device Monitoring
 
 Turn Glassy IP Scanner into a lightweight network monitoring tool.
 
 * ❌ Continuous scanning
-* 🟡 Device online/offline detection (per-scan only, no monitoring)
-* ❌ New-device notifications
-* ❌ Device disappearance alerts
+* ✅ Device online/offline detection (per-scan reconciliation)
+* ✅ New-device notifications
+* ✅ Device disappearance alerts
 * ❌ Configurable scan intervals
-* ❌ Availability history
+* 🟡 Availability history (first/last-seen ledger; per-scan snapshots in scan history)
 * ❌ Response-time history
 
 Optional integrations:
@@ -153,15 +154,15 @@ Optional integrations:
 
 Keep track of what has changed on the network.
 
-* ❌ Previous scan results
-* ❌ Compare scans
-* ❌ New devices
-* ❌ Removed devices
-* ❌ Changed IP addresses
-* ❌ Changed MAC addresses
-* ❌ Changed hostnames
-* ❌ Changed open ports
-* ❌ Historical device information
+* ✅ Previous scan results
+* ✅ Compare scans
+* ✅ New devices
+* ✅ Removed devices
+* ✅ Changed IP addresses
+* 🟡 Changed MAC addresses (a MAC change is reported as removed + added)
+* ✅ Changed hostnames
+* ✅ Changed open ports
+* 🟡 Historical device information (device snapshot per scan, no standalone device timeline)
 
 ### 📤 Export & Reporting
 
@@ -290,13 +291,13 @@ A polished interface can be one of Glassy's biggest advantages.
 
 ### Phase 3 — Network Management
 
-* [ ] Scan history
-* [ ] Scan comparison
-* [ ] Device monitoring
-* [ ] New-device detection
-* [ ] Online/offline alerts
-* [ ] Network dashboard
-* [ ] Network map
+* [x] Scan history
+* [x] Scan comparison
+* [x] Device monitoring
+* [x] New-device detection
+* [x] Online/offline alerts
+* [x] Network dashboard
+* [x] Network map
 
 ### Phase 4 — Advanced Networking
 

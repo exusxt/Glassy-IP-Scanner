@@ -7,6 +7,10 @@ import type {
   AppSettings,
   DeviceProfile,
   DeviceProfiles,
+  HistoryDiff,
+  HistoryEntry,
+  KnownDevice,
+  MonitorEvent,
   NetworkInterface,
   PortScanOptions,
   ScanEvent,
@@ -34,6 +38,15 @@ const api = {
   getDevices: (): Promise<DeviceProfiles> => ipcRenderer.invoke('devices:get'),
   setDeviceProfile: (key: string, patch: Partial<DeviceProfile>): Promise<DeviceProfiles> =>
     ipcRenderer.invoke('devices:set', key, patch),
+
+  // Scan history + comparison (Phase 3).
+  getHistory: (): Promise<HistoryEntry[]> => ipcRenderer.invoke('history:list'),
+  clearHistory: (): Promise<boolean> => ipcRenderer.invoke('history:clear'),
+  diffScans: (aId: string, bId: string): Promise<HistoryDiff | null> => ipcRenderer.invoke('history:diff', aId, bId),
+
+  // Device monitoring (Phase 3): known-device ledger + new/online/offline alerts.
+  getMonitorEvents: (): Promise<MonitorEvent[]> => ipcRenderer.invoke('monitor:events'),
+  getKnownDevices: (): Promise<KnownDevice[]> => ipcRenderer.invoke('monitor:devices'),
 
   // App + window helpers.
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
@@ -67,6 +80,11 @@ const api = {
     const listener = (_e: IpcRendererEvent, s: UpdateState): void => cb(s)
     ipcRenderer.on('update:state', listener)
     return () => ipcRenderer.removeListener('update:state', listener)
+  },
+  onMonitorEvent: (cb: (ev: MonitorEvent) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, ev: MonitorEvent): void => cb(ev)
+    ipcRenderer.on('monitor:event', listener)
+    return () => ipcRenderer.removeListener('monitor:event', listener)
   }
 }
 

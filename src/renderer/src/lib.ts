@@ -160,6 +160,53 @@ export function portServiceName(port: number): string {
   return PORT_SERVICES[port] ?? 'unknown'
 }
 
+/** Accent color per device type, used by the network map and dashboard. */
+export const DEVICE_TYPE_COLORS: Record<DeviceTypeId, string> = {
+  router: '#f59e0b',
+  switch: '#14b8a6',
+  printer: '#8b5cf6',
+  nas: '#06b6d4',
+  camera: '#f472b6',
+  tv: '#fb7185',
+  speaker: '#a3e635',
+  phone: '#60a5fa',
+  tablet: '#38bdf8',
+  laptop: '#6366f1',
+  computer: '#818cf8',
+  console: '#e879f9',
+  rpi: '#34d399',
+  server: '#f97316',
+  'smart-device': '#94a3b8',
+  unknown: '#64748b'
+}
+
+/** Renders an ISO timestamp as a short, human-friendly "x ago" string. */
+export function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime()
+  if (!Number.isFinite(then)) return '—'
+  const seconds = Math.max(0, Math.floor((Date.now() - then) / 1000))
+  if (seconds < 60) return seconds <= 1 ? 'just now' : `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
+/** Formats an ISO timestamp as "12 Aug 2026, 14:05" (locale-aware). */
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 /** CSS custom properties (--glassy-*) a theme defines; applied via applyTheme. */
 export type ThemeVars = Record<string, string>
 

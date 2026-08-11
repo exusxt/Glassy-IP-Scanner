@@ -6,7 +6,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Shuffle } from 'lucide-react'
-import type { AppSettings, DeviceProfile, DeviceProfiles, HostResult, NetworkInterface, ScanEvent, ScanProgress, ScanStatus, ScanSummary } from '../../shared/types'
+import type { AppSettings, DeviceProfile, DeviceProfiles, HostResult, KnownDevice, MonitorEvent, NetworkInterface, ScanEvent, ScanProgress, ScanStatus, ScanSummary } from '../../shared/types'
 import { applyTheme, isGalleryTheme, THEMES, type ThemeId } from './lib'
 import { BACKGROUNDS } from './backgrounds'
 import { useUpdater } from './updater'
@@ -17,6 +17,8 @@ import { UpdateDialog } from './components/UpdateDialog'
 import { Button } from './components/ui'
 import { OverviewScreen } from './screens/OverviewScreen'
 import { ScannerScreen } from './screens/ScannerScreen'
+import { HistoryScreen } from './screens/HistoryScreen'
+import { MapScreen } from './screens/MapScreen'
 import { ConsoleScreen } from './screens/ConsoleScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 
@@ -52,6 +54,8 @@ export default function App(): React.JSX.Element {
   const [logs, setLogs] = useState<ScanLogLine[]>([])
   const [settings, setSettings] = useState<AppSettings>({ autoUpdate: false, skipUpdateVersion: null })
   const [devices, setDevices] = useState<DeviceProfiles>({})
+  const [monitorEvents, setMonitorEvents] = useState<MonitorEvent[]>([])
+  const [knownDevices, setKnownDevices] = useState<KnownDevice[]>([])
   const updater = useUpdater()
   const hostsRef = useRef<HostResult[]>([])
 
@@ -86,8 +90,21 @@ export default function App(): React.JSX.Element {
       hostsRef.current = s.hosts
     })
     window.api.getDevices().then(setDevices).catch(() => undefined)
+    window.api.getMonitorEvents().then(setMonitorEvents).catch(() => undefined)
+    window.api.getKnownDevices().then(setKnownDevices).catch(() => undefined)
     const offMax = window.api.onWindowMaximized(setMaximized)
-    return offMax
+    const offMonitor = window.api.onMonitorEvent((ev) => {
+      setKnownDevices((prev) => {
+        const next = prev.filter((d) => d.key !== ev.device.key)
+        next.push(ev.device)
+        return next
+      })
+      setMonitorEvents((prev) => (prev.some((e) => e.id === ev.id) ? prev : [...prev, ev]))
+    })
+    return () => {
+      offMax()
+      offMonitor()
+    }
   }, [refreshInterfaces])
 
   useEffect(() => {
@@ -159,10 +176,13 @@ export default function App(): React.JSX.Element {
             summary={summary}
             status={status}
             progress={progress}
+            alerts={monitorEvents}
+            knownDevices={knownDevices}
             onGoScan={(target) => {
               setInitialTarget(target ?? null)
               setScreen('scanner')
             }}
+            onGoMap={() => setScreen('map')}
           />
         )
       case 'scanner':
@@ -180,6 +200,19 @@ export default function App(): React.JSX.Element {
             onStatusChange={setStatus}
           />
         )
+      case 'history':
+        return <HistoryScreen devices={devices} />
+      case 'map':
+        return (
+          <MapScreen
+            hosts={hosts}
+            devices={devices}
+            onGoScan={(target) => {
+              setInitialTarget(target ?? null)
+              setScreen('scanner')
+            }}
+          />
+        )
       case 'console':
         return <ConsoleScreen logs={logs} />
       case 'settings':
@@ -195,7 +228,7 @@ export default function App(): React.JSX.Element {
           />
         )
     }
-  }, [screen, interfaces, hosts, summary, status, progress, logs, version, settings, devices, updateDevice, updater.state, updater.checkNow, saveSettings])
+  }, [screen, interfaces, hosts, summary, status, progress, logs, version, settings, devices, monitorEvents, knownDevices, updateDevice, updater.state, updater.checkNow, saveSettings])
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">

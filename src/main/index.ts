@@ -7,6 +7,8 @@ import { join } from 'node:path'
 import type { DeviceProfile, PortScanOptions, ScanEvent, ScanOptions, ScanState } from '../shared/types'
 import { appVersion } from './app-version'
 import { getDevices, setDeviceProfile } from './devices'
+import { clearHistory, diffScans, getHistory, recordScan as recordScanHistory } from './history'
+import { getKnownDevices, getMonitorEvents, recordScan as recordScanMonitor } from './monitor'
 import { listInterfaces, readArpTable, ScanManager } from './scanner'
 import { initUpdater } from './updater'
 
@@ -60,9 +62,18 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
-  // Stream every scan event to the renderer as it happens.
+  // Stream every scan event to the renderer as it happens. When a scan
+  // completes cleanly, persist it to the scan history and reconcile the
+  // monitoring ledger, pushing any new-device / online / offline alerts.
   scanManager.on('event', (ev: ScanEvent) => {
     mainWindow?.webContents.send('scan:event', ev)
+    if (ev.type === 'done') {
+      const state = scanManager.getState()
+      recordScanHistory(ev.summary, state.hosts)
+      for (const alert of recordScanMonitor(ev.summary, state.hosts)) {
+        mainWindow?.webContents.send('monitor:event', alert)
+      }
+    }
   })
 
   // Network information.
@@ -96,6 +107,18 @@ function registerIpc(): void {
   ipcMain.handle('devices:set', (_e, key: string, patch: Partial<DeviceProfile>): ReturnType<typeof setDeviceProfile> =>
     setDeviceProfile(key, patch)
   )
+
+  // Scan history + comparison (Phase 3).
+  ipcMain.handle('history:list', (): ReturnType<typeof getHistory> => getHistory())
+  ipcMain.handle('history:clear', (): boolean => {
+    clearHistory()
+    return true
+  })
+  ipcMain.handle('history:diff', (_e, aId: string, bId: string): ReturnType<typeof diffScans> => diffScans(aId, bId))
+
+  // Device monitoring (Phase 3): known-device ledger + new/online/offline alerts.
+  ipcMain.handle('monitor:events', (): ReturnType<typeof getMonitorEvents> => getMonitorEvents())
+  ipcMain.handle('monitor:devices', (): ReturnType<typeof getKnownDevices> => getKnownDevices())
 
   // App + window helpers.
   ipcMain.handle('app:getVersion', () => appVersion())

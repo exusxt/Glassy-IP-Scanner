@@ -5,6 +5,18 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Device monitoring: a persistent known-device ledger (`known.json`) now tracks every device the scanner has ever seen, with first/last-seen times and the last known online state
+- New-device detection: the first time a device appears it raises a "new device" alert, flagged in the dashboard's recently-discovered list and activity feed
+- Online/offline alerts: after each scan the ledger is reconciled against the results — devices that disappeared from the scanned range raise "offline" alerts, devices that returned raise "online" alerts; devices outside the scanned range are never flagged offline
+- Scan history: every completed scan is persisted to `history.json` (summary + device snapshot, capped at 50 entries) and listed on the new **Scan History** screen
+- Scan comparison: pick any two history entries and see exactly which devices were added, removed or changed (IP, hostname, device type, open ports)
+- Network map: a new **Network Map** screen renders an interactive SVG topology with the gateway/router at the center, per-device-type colors, zoom, pan and a detail panel on selection
+- Dashboard upgrade: the Overview now shows known-device and new-device stat cards, a live new/online/offline activity feed, a device-category breakdown and "new" markers on recently discovered hosts
+
 ## [v0.2.2] - 2026-08-11
 
 ### Fixed

@@ -145,3 +145,17 @@ body {
 .animate-float {
   animation: glassy-float 2.2s ease-in-out infinite;
 }
+
+@keyframes map-node-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-map-node {
+  animation: map-node-pulse 2.4s ease-in-out infinite;
+}

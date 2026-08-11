@@ -166,3 +166,83 @@ export interface UpdateState {
   error: string | null
   autoUpdate: boolean
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Device monitoring
+// ---------------------------------------------------------------------------
+
+/**
+ * A device tracked by the monitoring ledger (persisted in known.json). Keyed
+ * by the MAC address when known, otherwise by the IP. The ledger remembers
+ * first/last-seen times and the last online state so alerts can be derived.
+ */
+export interface KnownDevice {
+  key: string
+  ip: string
+  mac: string | null
+  hostname: string | null
+  vendor: string | null
+  deviceType: DeviceTypeId
+  /** First scan in which this device was ever observed. */
+  firstSeen: string
+  /** Most recent scan in which this device was observed. */
+  lastSeen: string
+  lastState: 'online' | 'offline' | null
+}
+
+/** The kinds of alerts the monitor can emit. */
+export type MonitorEventType = 'new' | 'online' | 'offline'
+
+/** A single new-device / online / offline alert pushed to the renderer. */
+export interface MonitorEvent {
+  id: number
+  type: MonitorEventType
+  device: KnownDevice
+  at: string
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Scan history
+// ---------------------------------------------------------------------------
+
+/** Snapshot of one device stored inside a scan-history entry. */
+export interface HistoryDevice {
+  /** Stable identity: MAC when known, otherwise the IP. */
+  key: string
+  ip: string
+  mac: string | null
+  hostname: string | null
+  vendor: string | null
+  deviceType: DeviceTypeId
+  openPorts: number[]
+}
+
+/** One persisted scan record (summary + device snapshot) in history.json. */
+export interface HistoryEntry {
+  id: string
+  target: string
+  startedAt: string
+  finishedAt: string
+  durationMs: number
+  total: number
+  online: number
+  devices: HistoryDevice[]
+}
+
+/** Result of comparing two history entries by device identity (MAC/IP). */
+export interface HistoryDiff {
+  /** Devices present in B but not in A. */
+  added: HistoryDevice[]
+  /** Devices present in A but not in B. */
+  removed: HistoryDevice[]
+  /** Devices present in both whose ip/hostname/type/ports changed. */
+  changed: Array<{
+    key: string
+    from: HistoryDevice
+    to: HistoryDevice
+    /** Human-readable change descriptions, e.g. "IP 192.168.1.5 → 192.168.1.9". */
+    changes: string[]
+  }>
+  /** Devices present in both with no detected changes. */
+  unchanged: number
+}
