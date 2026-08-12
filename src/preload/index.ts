@@ -9,8 +9,11 @@ import type {
   DataRestoreResult,
   DeviceProfile,
   DeviceProfiles,
+  ExportFormat,
+  ExportResult,
   HistoryDiff,
   HistoryEntry,
+  HostResult,
   KnownDevice,
   MapBackupResult,
   MapRestoreResult,
@@ -67,6 +70,16 @@ const api = {
   // Full data backup / restore (all local stores, via file dialog).
   backupAllData: (): Promise<DataBackupResult> => ipcRenderer.invoke('data:backup'),
   restoreAllData: (): Promise<DataRestoreResult> => ipcRenderer.invoke('data:restore'),
+
+  // Scan-results export (CSV / JSON via save dialog).
+  exportScanResults: (hosts: HostResult[], format: ExportFormat): Promise<ExportResult> =>
+    ipcRenderer.invoke('export:results', hosts, format),
+
+  // Wake-on-LAN: send a magic packet for a device's MAC.
+  wakeDevice: (mac: string): Promise<boolean> => ipcRenderer.invoke('wol:send', mac),
+
+  // Open an external http(s) URL in the default browser.
+  openExternal: (url: string): Promise<boolean> => ipcRenderer.invoke('app:openExternal', url),
 
   // App + window helpers.
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),

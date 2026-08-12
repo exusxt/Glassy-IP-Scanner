@@ -1,11 +1,12 @@
 // Electron main-process entry point: app lifecycle, the frameless window and
 // the IPC surface that exposes the Node scanning engine to the renderer.
 
-import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain, nativeImage, shell } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { DeviceProfile, HostResult, PortScanOptions, ScanEvent, ScanOptions, ScanState } from '../shared/types'
+import type { DeviceProfile, ExportFormat, ExportResult, HostResult, PortScanOptions, ScanEvent, ScanOptions, ScanState } from '../shared/types'
 import { appVersion } from './app-version'
+import { exportScanResults } from './export'
 import { backupAllData, backupMapSettings, restoreAllData, restoreMapSettings } from './backup'
 import { getDevices, setDeviceProfile } from './devices'
 import { clearHistory, diffScans, getHistory, recordScan as recordScanHistory } from './history'
@@ -18,6 +19,7 @@ import {
   setTopologyBinding
 } from './topology'
 import { initUpdater, syncUpdaterSettings } from './updater'
+import { sendWakeOnLan } from './wol'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -166,6 +168,27 @@ function registerIpc(): void {
     const result = restoreAllData(mainWindow)
     syncUpdaterSettings()
     return result
+  })
+
+  // Scan-results export (CSV / JSON via save dialog).
+  ipcMain.handle('export:results', (_e, hosts: HostResult[], format: ExportFormat): Promise<ExportResult> =>
+    exportScanResults(mainWindow, hosts, format)
+  )
+
+  // Wake-on-LAN: send a magic packet for a device's MAC.
+  ipcMain.handle('wol:send', (_e, mac: string): Promise<boolean> => sendWakeOnLan(mac))
+
+  // Open an external http(s) URL in the default browser (https/http only, so
+  // the renderer can never ask the OS to launch an arbitrary handler).
+  ipcMain.handle('app:openExternal', (_e, url: string): boolean => {
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return false
+      void shell.openExternal(url)
+      return true
+    } catch {
+      return false
+    }
   })
 
   // App + window helpers.

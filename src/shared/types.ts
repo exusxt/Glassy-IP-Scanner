@@ -347,6 +347,26 @@ export interface DataBackupResult {
   counts?: DataBackupCounts
 }
 
+// ---------------------------------------------------------------------------
+// Scan results export
+// ---------------------------------------------------------------------------
+
+/** The on-disk formats supported for exporting scan results. */
+export type ExportFormat = 'csv' | 'json'
+
+/** Result of exporting the current scan results to a file. */
+export interface ExportResult {
+  ok: boolean
+  /** True when the user cancelled the save dialog. */
+  cancelled?: boolean
+  /** Path the export was written to (null when cancelled/failed). */
+  path: string | null
+  /** Human-readable error message when the export failed. */
+  error?: string
+  /** Number of devices written. */
+  count?: number
+}
+
 /** Result of restoring ALL local data from a backup file. */
 export interface DataRestoreResult {
   ok: boolean

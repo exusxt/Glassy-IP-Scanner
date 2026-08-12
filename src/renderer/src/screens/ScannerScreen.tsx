@@ -11,6 +11,8 @@ import {
   ArrowUp,
   ArrowUpDown,
   Ban,
+  Download,
+  FileJson,
   Pause,
   Play,
   Radar,
@@ -100,6 +102,18 @@ function DeviceDetailsModal({
   const [tags, setTags] = useState((profile?.tags ?? []).join(', '))
   const [favorite, setFavorite] = useState(profile?.favorite ?? false)
   const [deviceType, setDeviceType] = useState(profile?.deviceType ?? '')
+  const [wakeState, setWakeState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle')
+
+  const wake = async (): Promise<void> => {
+    if (!host.mac || wakeState === 'sending') return
+    setWakeState('sending')
+    try {
+      const ok = await window.api.wakeDevice(host.mac)
+      setWakeState(ok ? 'sent' : 'failed')
+    } catch {
+      setWakeState('failed')
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
@@ -136,6 +150,25 @@ function DeviceDetailsModal({
             </div>
           ) : null}
         </div>
+
+        {host.mac && host.status === 'offline' ? (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-glassy-border bg-glassy-panel2/50 p-3">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-glassy-text">Wake on LAN</div>
+              <div className="mt-0.5 text-[11px] text-glassy-muted">
+                {wakeState === 'sent'
+                  ? 'Magic packet sent — the device should power on shortly.'
+                  : wakeState === 'failed'
+                    ? 'Could not send the magic packet. Check the MAC and try again.'
+                    : `Sends a magic packet to ${host.mac} so the device powers on.`}
+              </div>
+            </div>
+            <Button variant="primary" size="sm" onClick={() => void wake()} disabled={wakeState === 'sending'} className="shrink-0">
+              {wakeState === 'sending' ? <Spinner className="h-3.5 w-3.5" /> : <Zap className="h-3.5 w-3.5" />}
+              {wakeState === 'sending' ? 'Sending…' : wakeState === 'sent' ? 'Wake sent' : 'Wake'}
+            </Button>
+          </div>
+        ) : null}
 
         <Field label="Custom name">
           <Input value={customName} onChange={(e) => { setCustomName(e.target.value); onUpdate({ customName: e.target.value.trim() || null }) }} placeholder="e.g. Living Room TV" />
@@ -235,6 +268,7 @@ export function ScannerScreen({
   const [portProgress, setPortProgress] = useState<PortScanProgress | null>(null)
 
   const [detailKey, setDetailKey] = useState<string | null>(null)
+  const [exporting, setExporting] = useState<'csv' | 'json' | null>(null)
 
   useEffect(() => {
     if (initialTarget) {
@@ -296,6 +330,23 @@ export function ScannerScreen({
   }
 
   const onlineHosts = useMemo(() => hosts.filter((h) => h.status === 'online'), [hosts])
+
+  const exportResults = async (format: 'csv' | 'json'): Promise<void> => {
+    if (hosts.length === 0 || exporting !== null) return
+    setExporting(format)
+    try {
+      const res = await window.api.exportScanResults(hosts, format)
+      if (res.ok) {
+        window.alert(`Exported ${res.count ?? hosts.length} device(s) to:\n${res.path}`)
+      } else if (res.error && !res.cancelled) {
+        window.alert(res.error)
+      }
+    } catch {
+      window.alert('Could not export the scan results.')
+    } finally {
+      setExporting(null)
+    }
+  }
 
   const displayName = (h: HostResult): string => {
     const p = profiles.get(deviceKey(h))
@@ -576,7 +627,31 @@ export function ScannerScreen({
 
       <Panel className="p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-glassy-border px-4 py-2.5">
-          <span className="text-xs font-semibold uppercase tracking-wider text-glassy-muted">Results</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-glassy-muted">Results</span>
+            <div className="flex items-center gap-1 border-l border-glassy-border pl-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void exportResults('csv')}
+                disabled={hosts.length === 0 || exporting !== null}
+                title="Export scan results as CSV"
+              >
+                {exporting === 'csv' ? <Spinner className="h-3 w-3" /> : <Download className="h-3 w-3" />}
+                CSV
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => void exportResults('json')}
+                disabled={hosts.length === 0 || exporting !== null}
+                title="Export scan results as JSON"
+              >
+                {exporting === 'json' ? <Spinner className="h-3 w-3" /> : <FileJson className="h-3 w-3" />}
+                JSON
+              </Button>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-glassy-muted" />

@@ -5,6 +5,14 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0] - 2026-08-12
+
+### Added
+
+- Scan-results export: the results table now has **CSV** and **JSON** export buttons that write the current results (including known-but-offline devices) to a user-chosen file, with per-device rows covering IP, status, hostname, MAC, vendor, device type, latency, discovery method, open ports and timestamps
+- Wake-on-LAN: offline devices with a known MAC can be powered on from their detail dialog — a single magic packet is broadcast on the LAN, no credentials needed
+- Help menu in the title bar (user guide wiki, GitHub homepage, report an issue) and an About & documentation panel on the Settings screen that open the project wiki and homepage in the default browser
+
 ## [v0.4.0] - 2026-08-12
 
 ### Added

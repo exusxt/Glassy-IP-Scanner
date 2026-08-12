@@ -8,6 +8,10 @@ import type { ThemeId } from '../lib'
 import { THEME_IDS, THEME_NAMES, cn } from '../lib'
 import appIcon from '../assets/app-icon.png'
 
+const WIKI_URL = 'https://github.com/exusxt/Glassy-IP-Scanner/wiki'
+const HOMEPAGE_URL = 'https://github.com/exusxt/Glassy-IP-Scanner'
+const ISSUES_URL = 'https://github.com/exusxt/Glassy-IP-Scanner/issues'
+
 interface MenuProps {
   label: string
   children: React.ReactNode
@@ -110,6 +114,11 @@ export function TitleBar({
               {THEME_NAMES[id]}
             </MenuItem>
           ))}
+        </Menu>
+        <Menu label="Help">
+          <MenuItem onClick={() => void window.api.openExternal(WIKI_URL)}>User guide (wiki)</MenuItem>
+          <MenuItem onClick={() => void window.api.openExternal(HOMEPAGE_URL)}>GitHub homepage</MenuItem>
+          <MenuItem onClick={() => void window.api.openExternal(ISSUES_URL)}>Report an issue</MenuItem>
         </Menu>
       </div>
 

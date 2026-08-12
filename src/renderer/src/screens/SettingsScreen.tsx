@@ -5,9 +5,12 @@
  * writes or reads a single JSON file holding every local store (app settings,
  * device profiles, map topology, the monitoring ledger and scan history).
  */
-import { Archive, RefreshCw, Settings2, Undo2, Upload } from 'lucide-react'
+import { Archive, BookOpen, Github, RefreshCw, Settings2, Undo2, Upload } from 'lucide-react'
 import type { UpdateState } from '../../../shared/types'
 import { Badge, Button, Checkbox, Panel } from '../components/ui'
+
+const WIKI_URL = 'https://github.com/exusxt/Glassy-IP-Scanner/wiki'
+const HOMEPAGE_URL = 'https://github.com/exusxt/Glassy-IP-Scanner'
 
 function statusLabel(state: UpdateState): { text: string; tone: 'default' | 'good' | 'warn' | 'accent' } | null {
   switch (state.phase) {
@@ -124,6 +127,24 @@ export function SettingsScreen({
             <li>Known-device ledger (first/last-seen history)</li>
             <li>Scan history</li>
           </ul>
+        </div>
+      </Panel>
+
+      <Panel>
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-glassy-text">About &amp; documentation</h3>
+          <p className="mt-0.5 text-xs text-glassy-muted">
+            Guides, feature documentation and troubleshooting live in the project wiki.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Button variant="outline" onClick={() => void window.api.openExternal(WIKI_URL)}>
+            <BookOpen className="h-4 w-4" /> Open documentation wiki
+          </Button>
+          <Button variant="outline" onClick={() => void window.api.openExternal(HOMEPAGE_URL)}>
+            <Github className="h-4 w-4" /> GitHub homepage
+          </Button>
         </div>
       </Panel>
     </div>
