@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Glassy IP Scanner — Discover your network. Understand your devices.</title>
+  <meta name="description" content="A modern, fast, and lightweight network discovery tool with a glassmorphic interface. Scan, visualize and understand the devices on your local network." />
+  <link rel="icon" href="https://raw.githubusercontent.com/exusxt/Glassy-IP-Scanner/main/build/icon.png" />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: rgba(255, 255, 255, 0.06);
+      --panel-border: rgba(255, 255, 255, 0.12);
+      --text: #e2e8f0;
+      --muted: #8b98b8;
+      --accent: #22d3ee;
+      --good: #34d399;
+      --radius: 16px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+      background: radial-gradient(1200px 600px at 50% -10%, #16204a 0%, var(--bg) 55%) fixed;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+    header { padding: 72px 0 40px; text-align: center; }
+    .logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 0 40px rgba(34, 211, 238, 0.35); }
+    h1 { margin-top: 22px; font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em; }
+    .tagline { margin-top: 10px; color: var(--muted); font-size: 1.1rem; }
+    .badges { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .badge {
+      font-size: 0.75rem; padding: 4px 10px; border-radius: 999px;
+      border: 1px solid var(--panel-border); background: var(--panel); color: var(--muted);
+    }
+    .cta { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px;
+      border-radius: 12px; font-weight: 600; text-decoration: none; font-size: 0.95rem;
+      border: 1px solid var(--panel-border); transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .btn-primary { background: linear-gradient(135deg, #22d3ee, #38bdf8); color: #06222b; box-shadow: 0 8px 30px rgba(34, 211, 238, 0.35); }
+    .btn-ghost { background: var(--panel); color: var(--text); backdrop-filter: blur(10px); }
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary:hover { box-shadow: 0 10px 40px rgba(34, 211, 238, 0.45); }
+    section { padding: 40px 0; }
+    h2 { font-size: 1.5rem; font-weight: 650; margin-bottom: 18px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius);
+      padding: 20px; backdrop-filter: blur(12px); transition: border-color 0.15s ease;
+    }
+    .card:hover { border-color: rgba(255, 255, 255, 0.25); }
+    .card h3 { font-size: 1rem; margin-bottom: 6px; }
+    .card h3 .ico { margin-right: 8px; }
+    .card p { color: var(--muted); font-size: 0.9rem; }
+    .links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
+    .links a {
+      color: var(--accent); text-decoration: none; font-size: 0.9rem;
+      padding: 6px 14px; border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 999px; background: rgba(34, 211, 238, 0.06);
+    }
+    .links a:hover { background: rgba(34, 211, 238, 0.14); }
+    .muted { color: var(--muted); font-size: 0.85rem; }
+    footer { padding: 40px 0 56px; text-align: center; }
+    footer .license { margin-top: 6px; font-size: 0.8rem; color: #55618a; }
+  </style>
+</head>
+<body>
+  <header>
+    <img class="logo" src="https://raw.githubusercontent.com/exusxt/Glassy-IP-Scanner/main/build/icon.png" alt="Glassy IP Scanner" />
+    <h1>Glassy IP Scanner</h1>
+    <p class="tagline">A modern, fast and lightweight network discovery tool with a glassmorphic interface.</p>
+    <div class="badges">
+      <span class="badge">Windows · macOS · Linux</span>
+      <span class="badge">Local-first · no account</span>
+      <span class="badge">Open source · MIT</span>
+      <span class="badge">IPv4 discovery · ICMP / ARP / TCP</span>
+    </div>
+    <div class="cta">
+      <a class="btn btn-primary" href="https://github.com/exusxt/Glassy-IP-Scanner/releases/latest">⬇ Download latest release</a>
+      <a class="btn btn-ghost" href="https://github.com/exusxt/Glassy-IP-Scanner">View on GitHub</a>
+    </div>
+  </header>
+
+  <section class="wrap">
+    <h2>What it does</h2>
+    <div class="grid">
+      <div class="card"><h3><span class="ico">🔎</span>Fast scanning</h3><p>Scan single IPs, ranges or CIDR blocks with configurable speed, pause/resume/cancel and real-time results.</p></div>
+      <div class="card"><h3><span class="ico">🧠</span>Device intelligence</h3><p>Hostnames, MAC vendors and device-type classification — plus custom names, notes, tags and favorites.</p></div>
+      <div class="card"><h3><span class="ico">🔌</span>Port scanner</h3><p>Built-in TCP port scanning with presets, custom ranges and service names for well-known ports.</p></div>
+      <div class="card"><h3><span class="ico">🗺️</span>Network map</h3><p>Interactive topology with the gateway at the center, SNMP switch detection, zoom/pan and image export.</p></div>
+      <div class="card"><h3><span class="ico">🔔</span>Monitoring</h3><p>A persistent known-device ledger raises new-device, back-online and went-offline alerts between scans.</p></div>
+      <div class="card"><h3><span class="ico">📜</span>Scan history</h3><p>Every scan is recorded; compare any two to see exactly what changed on your network.</p></div>
+      <div class="card"><h3><span class="ico">💾</span>Backup &amp; restore</h3><p>Export all local data (settings, profiles, map, ledger, history) to a single JSON file and move between machines.</p></div>
+      <div class="card"><h3><span class="ico">🔒</span>Privacy first</h3><p>No account, no cloud, no telemetry. All scanning and data storage happens on your machine.</p></div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>Learn more</h2>
+    <div class="links">
+      <a href="https://github.com/exusxt/Glassy-IP-Scanner/blob/main/README.md">README</a>
+      <a href="https://github.com/exusxt/Glassy-IP-Scanner/wiki">Wiki</a>
+      <a href="https://github.com/exusxt/Glassy-IP-Scanner/releases">Releases</a>
+      <a href="https://github.com/exusxt/Glassy-IP-Scanner/issues">Issues</a>
+    </div>
+  </section>
+
+  <footer>
+    <p class="muted">Discover your network. Understand your devices. Stay in control.</p>
+    <p class="license">© Glassy IP Scanner contributors · Released under the MIT License</p>
+  </footer>
+</body>
+</html>
