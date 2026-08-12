@@ -70,6 +70,29 @@ export function getKnownDevices(): KnownDevice[] {
 }
 
 /**
+ * Every device the scanner has ever detected, as an offline HostResult. The
+ * scan manager folds these into a scan's results so devices that sit inside
+ * the scanned range but did not answer probes still show up — marked offline —
+ * with the metadata saved in the ledger (hostname, MAC, vendor, type and
+ * first/last-seen times all come from the database, not from the last scan).
+ */
+export function getKnownHosts(): HostResult[] {
+  return [...loadLedger().values()].map((d): HostResult => ({
+    ip: d.ip,
+    status: 'offline',
+    hostname: d.hostname,
+    mac: d.mac,
+    vendor: d.vendor,
+    latencyMs: null,
+    via: [],
+    deviceType: d.deviceType,
+    openPorts: [],
+    firstSeen: d.firstSeen,
+    lastSeen: d.lastSeen
+  }))
+}
+
+/**
  * Reconciles the ledger against a completed scan and returns the alerts to
  * emit to the renderer:
  *  - a device never seen before → 'new'

@@ -11,7 +11,8 @@ const DEFAULTS: DeviceProfile = {
   customName: null,
   notes: null,
   tags: [],
-  favorite: false
+  favorite: false,
+  deviceType: null
 }
 
 let cache: DeviceProfiles | null = null
@@ -36,18 +37,39 @@ export function getDevices(): DeviceProfiles {
   return cache
 }
 
-export function setDeviceProfile(key: string, patch: Partial<DeviceProfile>): DeviceProfiles {
-  const next = getDevices()
-  next[key] = { ...(next[key] ?? { ...DEFAULTS }), ...patch }
+function persist(): void {
+  if (!cache) return
   try {
     const dir = dirname(devicesPath())
     mkdirSync(dir, { recursive: true })
     const tmp = `${devicesPath()}.tmp`
-    writeFileSync(tmp, JSON.stringify(next, null, 2), 'utf8')
+    writeFileSync(tmp, JSON.stringify(cache, null, 2), 'utf8')
     renameSync(tmp, devicesPath())
   } catch {
     // Profiles are best-effort; never crash the app over a write failure.
   }
+}
+
+export function setDeviceProfile(key: string, patch: Partial<DeviceProfile>): DeviceProfiles {
+  const next = getDevices()
+  next[key] = { ...(next[key] ?? { ...DEFAULTS }), ...patch }
   cache = next
+  persist()
   return next
+}
+
+/**
+ * Replaces the entire profile store (used when restoring a settings backup).
+ * Entries are normalized against the defaults so a malformed backup can never
+ * crash later reads.
+ */
+export function replaceDevices(profiles: DeviceProfiles): DeviceProfiles {
+  cache = {}
+  for (const [key, value] of Object.entries(profiles)) {
+    if (key && value && typeof value === 'object') {
+      cache[key] = { ...DEFAULTS, ...(value as Partial<DeviceProfile>) }
+    }
+  }
+  persist()
+  return cache
 }

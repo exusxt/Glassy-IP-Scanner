@@ -69,6 +69,8 @@ export interface HostResult {
   via: string[]
   /** Best-effort device type guess from vendor/hostname/gateway heuristics. */
   deviceType: DeviceTypeId
+  /** True when this address is the IPv4 default gateway (real router). */
+  isGateway?: boolean
   /** Open TCP ports found by the built-in port scanner. */
   openPorts: number[]
   firstSeen: string
@@ -140,6 +142,12 @@ export interface DeviceProfile {
   notes: string | null
   tags: string[]
   favorite: boolean
+  /**
+   * Manual device-type override; null means "keep the auto-detected type".
+   * Lets users correct misclassified gear (e.g. a Netgear switch read as a
+   * router) and is persisted like the other profile fields.
+   */
+  deviceType: DeviceTypeId | null
 }
 
 /** All device profiles, keyed by the normalized MAC (or IP when no MAC). */
@@ -245,4 +253,70 @@ export interface HistoryDiff {
   }>
   /** Devices present in both with no detected changes. */
   unchanged: number
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Switch-aware network topology
+// ---------------------------------------------------------------------------
+
+/** MAC-address table of one managed switch, read over SNMP. */
+export interface SwitchTable {
+  ip: string
+  /** Normalized MACs (uppercase, no separators) seen on this switch's ports. */
+  macs: string[]
+  /** When the table was read. */
+  at: string
+  /** True when SNMP responded and produced a table. */
+  ok: boolean
+  /** Community string that worked, when any. */
+  community: string | null
+}
+
+/**
+ * Everything the map needs to draw a switch-aware topology: the cached SNMP
+ * MAC tables per switch, plus the user's manual device→switch overrides.
+ */
+export interface TopologyData {
+  /** Keyed by switch IP. */
+  switchTables: Record<string, SwitchTable>
+  /** Manual overrides: device key (MAC/IP) → switch IP or "router". */
+  bindings: Record<string, string>
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3 — Map settings backup / restore
+// ---------------------------------------------------------------------------
+
+/** Result of backing up the network-map device settings to a JSON file. */
+export interface MapBackupResult {
+  ok: boolean
+  /** True when the user cancelled the save dialog. */
+  cancelled?: boolean
+  /** Path the backup was written to (null when cancelled/failed). */
+  path: string | null
+  /** Human-readable error message when the backup failed. */
+  error?: string
+  /** Number of device profiles included in the backup. */
+  devicesCount?: number
+  /** Number of manual device→switch connections included. */
+  bindingsCount?: number
+}
+
+/** Result of restoring network-map device settings from a JSON file. */
+export interface MapRestoreResult {
+  ok: boolean
+  /** True when the user cancelled the open dialog. */
+  cancelled?: boolean
+  /** Path the backup was read from (null when cancelled/failed). */
+  path: string | null
+  /** Human-readable error message when the restore failed. */
+  error?: string
+  /** The restored profile store, returned so the renderer can refresh. */
+  devices: DeviceProfiles
+  /** The restored manual device→switch connections. */
+  bindings: Record<string, string>
+  /** The restored cached SNMP switch tables. */
+  switchTables: Record<string, SwitchTable>
+  devicesCount: number
+  bindingsCount: number
 }

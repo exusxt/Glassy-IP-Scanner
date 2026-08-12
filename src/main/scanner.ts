@@ -621,6 +621,7 @@ export class ScanManager extends EventEmitter {
   private pauseGate: Promise<void> | null = null
   private resumeGate: (() => void) | null = null
   private abort = new AbortController()
+  private knownHostsProvider: (() => HostResult[] | Promise<HostResult[]>) | null = null
 
   constructor() {
     super()
@@ -630,6 +631,16 @@ export class ScanManager extends EventEmitter {
   /** Current scanner snapshot for the UI. */
   getState(): ScanState {
     return { status: this.status, summary: this.summary, hosts: [...this.hosts] }
+  }
+
+  /**
+   * Registers a provider of persisted known-device records. After every scan
+   * the manager folds previously-detected devices that sit inside the scanned
+   * range but were not reachable into the results, so they keep appearing as
+   * offline with their saved metadata instead of vanishing from the UI.
+   */
+  setKnownHostsProvider(provider: () => HostResult[] | Promise<HostResult[]>): void {
+    this.knownHostsProvider = provider
   }
 
   private emitEvent(ev: ScanEvent): void {
@@ -723,6 +734,7 @@ export class ScanManager extends EventEmitter {
     this.emitEvent({ type: 'progress', progress: { ...progress } })
 
     const signal = this.abort.signal
+    let onlineCount = 0
     await runWorkers(ips, options.concurrency, async (ip) => {
       await this.checkGate()
       if (this.cancelled) return
@@ -731,12 +743,30 @@ export class ScanManager extends EventEmitter {
       this.doneCount++
       if (host.status === 'online') {
         this.hosts.push(host)
+        onlineCount++
         this.emitEvent({ type: 'host', host })
       }
       progress.done = this.doneCount
-      progress.online = this.hosts.length
+      progress.online = onlineCount
       this.emitEvent({ type: 'progress', progress: { ...progress } })
     })
+
+    // Fold previously-detected devices that sit inside the scanned range but
+    // were not reachable back into the results, so known-but-offline devices
+    // keep showing up (with their saved metadata) instead of vanishing. Their
+    // status comes from this scan's probes, their metadata from the database.
+    if (!this.cancelled && this.knownHostsProvider) {
+      const known = await this.knownHostsProvider()
+      const onlineIps = new Set(this.hosts.map((h) => h.ip))
+      const scanned = new Set(ips)
+      for (const host of known) {
+        if (this.cancelled) break
+        if (host.status !== 'offline') continue
+        if (!scanned.has(host.ip) || onlineIps.has(host.ip)) continue
+        this.hosts.push(host)
+        this.emitEvent({ type: 'host', host })
+      }
+    }
 
     const finishedAt = new Date().toISOString()
     if (this.cancelled) {
@@ -750,9 +780,13 @@ export class ScanManager extends EventEmitter {
         finishedAt,
         durationMs: Date.now() - startedMs,
         total: ips.length,
-        online: this.hosts.length
+        online: onlineCount
       }
-      this.log('info', `Scan complete: ${this.hosts.length} device(s) found in ${((Date.now() - startedMs) / 1000).toFixed(1)}s`)
+      const offlineCount = this.hosts.length - onlineCount
+      this.log(
+        'info',
+        `Scan complete: ${onlineCount} online, ${offlineCount} known-offline device(s) in ${((Date.now() - startedMs) / 1000).toFixed(1)}s`
+      )
       this.emitEvent({ type: 'done', summary: this.summary })
     }
   }
@@ -789,11 +823,13 @@ export class ScanManager extends EventEmitter {
         : Promise.resolve(null)
 
     // MAC: from the ARP snapshot, or from the local interfaces for our own IP.
+    // The pre-scan ARP snapshot is enrichment only — it must never be treated
+    // as a liveness signal, because ARP caches keep entries for devices that
+    // have been offline for a long while (they'd otherwise surface as false
+    // "online" results).
+    const hadArpBefore = opts.methods.arp ? this.arpTable.has(ip) : false
     let mac = opts.methods.arp ? this.arpTable.get(ip) ?? null : null
-    if (mac) {
-      via.push('arp')
-      latencies.push(0)
-    } else if (this.localMacs.has(ip)) {
+    if (!mac && this.localMacs.has(ip)) {
       mac = this.localMacs.get(ip) ?? null
     }
 
@@ -818,11 +854,28 @@ export class ScanManager extends EventEmitter {
       }
     }
 
-    const online = via.length > 0
+    let online = via.length > 0
+
+    // A host that is alive but drops ICMP and has no listening TCP ports can
+    // still be found through a *fresh* ARP entry: the probes just above made
+    // the OS resolve the host's hardware address, so a brand-new entry proves
+    // it answered our own ARP request. This is only trustworthy when the IP
+    // was not already in the pre-scan snapshot — an entry that existed before
+    // could simply be a stale leftover of a dead device.
+    if (!online && opts.methods.arp && !hadArpBefore) {
+      const fresh = await arpLookup(ip)
+      if (fresh) {
+        mac = fresh
+        via.push('arp')
+        latencies.push(0)
+        online = true
+      }
+    }
+
     const latencyMs = online ? Math.min(...latencies) : null
 
-    // A probe to a fresh host populates the ARP cache, so query it again to
-    // pick up MACs that were not in the snapshot taken before scanning.
+    // A successful probe may have populated the ARP cache, so query it again
+    // to pick up MACs that were not in the snapshot taken before scanning.
     if (online && !mac) {
       const fresh = await arpLookup(ip)
       if (fresh) mac = fresh
@@ -869,6 +922,7 @@ export class ScanManager extends EventEmitter {
       latencyMs,
       via,
       deviceType: detectDeviceType({ hostname, vendor, isGateway: ip === this.gatewayIp }),
+      isGateway: ip === this.gatewayIp,
       openPorts: [],
       firstSeen: now,
       lastSeen: now

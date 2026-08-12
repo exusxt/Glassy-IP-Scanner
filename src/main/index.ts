@@ -4,18 +4,41 @@
 import { app, BrowserWindow, ipcMain, nativeImage } from 'electron'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { DeviceProfile, PortScanOptions, ScanEvent, ScanOptions, ScanState } from '../shared/types'
+import type { DeviceProfile, HostResult, PortScanOptions, ScanEvent, ScanOptions, ScanState } from '../shared/types'
 import { appVersion } from './app-version'
+import { backupMapSettings, restoreMapSettings } from './backup'
 import { getDevices, setDeviceProfile } from './devices'
 import { clearHistory, diffScans, getHistory, recordScan as recordScanHistory } from './history'
-import { getKnownDevices, getMonitorEvents, recordScan as recordScanMonitor } from './monitor'
+import { getKnownDevices, getKnownHosts, getMonitorEvents, recordScan as recordScanMonitor } from './monitor'
 import { listInterfaces, readArpTable, ScanManager } from './scanner'
+import {
+  clearTopologyBindings,
+  getTopology,
+  refreshSwitchTables,
+  setTopologyBinding
+} from './topology'
 import { initUpdater } from './updater'
 
 let mainWindow: BrowserWindow | null = null
 
 /** Single scan manager shared across the app; serializes scans. */
 const scanManager = new ScanManager()
+// After every scan, previously-detected devices inside the scanned range that
+// were not reachable come back as offline results from the monitoring ledger,
+// so the table and network map keep showing them with their saved metadata.
+scanManager.setKnownHostsProvider(getKnownHosts)
+
+/**
+ * After a scan finds switches, quietly re-read their SNMP MAC tables in the
+ * background and push the fresh topology so the map updates without a manual
+ * refresh. Non-blocking; SNMP reads never hold up the UI.
+ */
+async function autoRefreshTopology(hosts: HostResult[]): Promise<void> {
+  const switchIps = hosts.filter((h) => h.status === 'online' && h.deviceType === 'switch').map((h) => h.ip)
+  if (switchIps.length === 0) return
+  const data = await refreshSwitchTables(switchIps, 1200)
+  mainWindow?.webContents.send('topology:updated', data)
+}
 
 /** Window icon shared by the title bar and taskbar; falls back to undefined. */
 function windowIcon(): Electron.NativeImage | undefined {
@@ -73,6 +96,7 @@ function registerIpc(): void {
       for (const alert of recordScanMonitor(ev.summary, state.hosts)) {
         mainWindow?.webContents.send('monitor:event', alert)
       }
+      void autoRefreshTopology(state.hosts)
     }
   })
 
@@ -119,6 +143,22 @@ function registerIpc(): void {
   // Device monitoring (Phase 3): known-device ledger + new/online/offline alerts.
   ipcMain.handle('monitor:events', (): ReturnType<typeof getMonitorEvents> => getMonitorEvents())
   ipcMain.handle('monitor:devices', (): ReturnType<typeof getKnownDevices> => getKnownDevices())
+
+  // Switch-aware topology (Phase 3): manual device→switch bindings + SNMP tables.
+  ipcMain.handle('topology:get', (): ReturnType<typeof getTopology> => getTopology())
+  ipcMain.handle('topology:setBinding', (_e, key: string, switchIp: string | null): ReturnType<typeof setTopologyBinding> =>
+    setTopologyBinding(key, switchIp)
+  )
+  ipcMain.handle('topology:clear', (): ReturnType<typeof clearTopologyBindings> => clearTopologyBindings())
+  ipcMain.handle('topology:refresh', async (_e, switchIps: string[]): Promise<ReturnType<typeof getTopology>> => {
+    const data = await refreshSwitchTables(switchIps, 1200)
+    mainWindow?.webContents.send('topology:updated', data)
+    return data
+  })
+
+  // Map settings backup / restore (device profiles + topology, via file dialog).
+  ipcMain.handle('map:backup', () => backupMapSettings(mainWindow))
+  ipcMain.handle('map:restore', () => restoreMapSettings(mainWindow))
 
   // App + window helpers.
   ipcMain.handle('app:getVersion', () => appVersion())

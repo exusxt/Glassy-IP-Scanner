@@ -99,6 +99,7 @@ function DeviceDetailsModal({
   const [notes, setNotes] = useState(profile?.notes ?? '')
   const [tags, setTags] = useState((profile?.tags ?? []).join(', '))
   const [favorite, setFavorite] = useState(profile?.favorite ?? false)
+  const [deviceType, setDeviceType] = useState(profile?.deviceType ?? '')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
@@ -150,6 +151,23 @@ function DeviceDetailsModal({
             className="glass-input w-full rounded-lg px-3 py-2 text-sm text-glassy-text caret-glassy-accent placeholder:text-glassy-muted/80"
             rows={3}
           />
+        </Field>
+        <Field label="Device type" hint="Overrides auto-detection — use it to fix a switch read as a router.">
+          <Select
+            value={deviceType}
+            onChange={(e) => {
+              const value = e.target.value || null
+              setDeviceType(value ?? '')
+              onUpdate({ deviceType: value as DeviceTypeId | null })
+            }}
+          >
+            <option value="">Auto-detect</option>
+            {Object.entries(DEVICE_TYPE_META).map(([id, meta]) => (
+              <option key={id} value={id}>
+                {meta.label}
+              </option>
+            ))}
+          </Select>
         </Field>
 
         <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-glassy-border bg-glassy-panel2/50 p-3 transition-colors hover:border-glassy-borderlight">

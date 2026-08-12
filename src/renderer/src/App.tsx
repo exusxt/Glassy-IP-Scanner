@@ -6,8 +6,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Shuffle } from 'lucide-react'
-import type { AppSettings, DeviceProfile, DeviceProfiles, HostResult, KnownDevice, MonitorEvent, NetworkInterface, ScanEvent, ScanProgress, ScanStatus, ScanSummary } from '../../shared/types'
-import { applyTheme, isGalleryTheme, THEMES, type ThemeId } from './lib'
+import type { AppSettings, DeviceProfile, DeviceProfiles, HostResult, KnownDevice, MonitorEvent, NetworkInterface, ScanEvent, ScanProgress, ScanStatus, ScanSummary, TopologyData } from '../../shared/types'
+import { applyTheme, deviceKey, isGalleryTheme, THEMES, type ThemeId } from './lib'
 import { BACKGROUNDS } from './backgrounds'
 import { useUpdater } from './updater'
 import { TitleBar } from './components/TitleBar'
@@ -56,6 +56,7 @@ export default function App(): React.JSX.Element {
   const [devices, setDevices] = useState<DeviceProfiles>({})
   const [monitorEvents, setMonitorEvents] = useState<MonitorEvent[]>([])
   const [knownDevices, setKnownDevices] = useState<KnownDevice[]>([])
+  const [topology, setTopology] = useState<TopologyData>({ switchTables: {}, bindings: {} })
   const updater = useUpdater()
   const hostsRef = useRef<HostResult[]>([])
 
@@ -66,6 +67,63 @@ export default function App(): React.JSX.Element {
   const updateDevice = useCallback((key: string, patch: Partial<DeviceProfile>): void => {
     void window.api.setDeviceProfile(key, patch).then(setDevices).catch(() => undefined)
   }, [])
+
+  const setBinding = useCallback((key: string, switchIp: string | null): void => {
+    void window.api.setTopologyBinding(key, switchIp).then(setTopology).catch(() => undefined)
+  }, [])
+
+  const clearBindings = useCallback((): void => {
+    void window.api.clearTopologyBindings().then(setTopology).catch(() => undefined)
+  }, [])
+
+  const refreshTopology = useCallback((switchIps: string[]): void => {
+    void window.api.refreshTopology(switchIps).then(setTopology).catch(() => undefined)
+  }, [])
+
+  const backupMapSettings = useCallback(async (): Promise<void> => {
+    const res = await window.api.backupMapSettings().catch(() => null)
+    if (!res) {
+      window.alert('Could not create the settings backup.')
+      return
+    }
+    if (!res.ok) {
+      if (res.error && !res.cancelled) window.alert(res.error)
+      return
+    }
+    window.alert(
+      `Backup saved to:\n${res.path}\n\n${res.devicesCount ?? 0} device profile(s) · ${res.bindingsCount ?? 0} connection(s)`
+    )
+  }, [])
+
+  const restoreMapSettings = useCallback(async (): Promise<void> => {
+    if (!window.confirm('Restore the backup? This replaces your current device names, types and connection settings. This cannot be undone.')) {
+      return
+    }
+    const res = await window.api.restoreMapSettings().catch(() => null)
+    if (!res) {
+      window.alert('Could not restore the settings backup.')
+      return
+    }
+    if (!res.ok) {
+      if (res.error && !res.cancelled) window.alert(res.error)
+      return
+    }
+    setDevices(res.devices)
+    setTopology({ switchTables: res.switchTables, bindings: res.bindings })
+    window.alert(`Settings restored from:\n${res.path}\n\n${res.devicesCount} device profile(s) · ${res.bindingsCount} connection(s)`)
+  }, [])
+
+  // Hosts with each device's manual type override applied, so a corrected
+  // classification (e.g. a Netgear switch read as a router) shows everywhere:
+  // table, icons, filters, colors and the network map.
+  const effectiveHosts = useMemo(() => {
+    if (Object.keys(devices).length === 0) return hosts
+    return hosts.map((h) => {
+      const key = deviceKey(h.mac, h.ip).toLowerCase()
+      const override = devices[key]?.deviceType
+      return override && override !== h.deviceType ? { ...h, deviceType: override } : h
+    })
+  }, [hosts, devices])
 
   const refreshInterfaces = useCallback(async (): Promise<void> => {
     setRefreshing(true)
@@ -92,6 +150,7 @@ export default function App(): React.JSX.Element {
     window.api.getDevices().then(setDevices).catch(() => undefined)
     window.api.getMonitorEvents().then(setMonitorEvents).catch(() => undefined)
     window.api.getKnownDevices().then(setKnownDevices).catch(() => undefined)
+    window.api.getTopology().then(setTopology).catch(() => undefined)
     const offMax = window.api.onWindowMaximized(setMaximized)
     const offMonitor = window.api.onMonitorEvent((ev) => {
       setKnownDevices((prev) => {
@@ -101,9 +160,11 @@ export default function App(): React.JSX.Element {
       })
       setMonitorEvents((prev) => (prev.some((e) => e.id === ev.id) ? prev : [...prev, ev]))
     })
+    const offTopology = window.api.onTopologyUpdated(setTopology)
     return () => {
       offMax()
       offMonitor()
+      offTopology()
     }
   }, [refreshInterfaces])
 
@@ -172,7 +233,7 @@ export default function App(): React.JSX.Element {
         return (
           <OverviewScreen
             interfaces={interfaces}
-            hosts={hosts}
+            hosts={effectiveHosts}
             summary={summary}
             status={status}
             progress={progress}
@@ -192,7 +253,7 @@ export default function App(): React.JSX.Element {
             status={status}
             progress={progress}
             summary={summary}
-            hosts={hosts}
+            hosts={effectiveHosts}
             devices={devices}
             onUpdateDevice={updateDevice}
             initialTarget={initialTarget}
@@ -205,8 +266,15 @@ export default function App(): React.JSX.Element {
       case 'map':
         return (
           <MapScreen
-            hosts={hosts}
+            hosts={effectiveHosts}
             devices={devices}
+            topology={topology}
+            onSetBinding={setBinding}
+            onClearBindings={clearBindings}
+            onRefreshTopology={refreshTopology}
+            onUpdateDevice={updateDevice}
+            onBackupSettings={backupMapSettings}
+            onRestoreSettings={restoreMapSettings}
             onGoScan={(target) => {
               setInitialTarget(target ?? null)
               setScreen('scanner')
@@ -228,7 +296,7 @@ export default function App(): React.JSX.Element {
           />
         )
     }
-  }, [screen, interfaces, hosts, summary, status, progress, logs, version, settings, devices, monitorEvents, knownDevices, updateDevice, updater.state, updater.checkNow, saveSettings])
+  }, [screen, interfaces, effectiveHosts, summary, status, progress, logs, version, settings, devices, monitorEvents, knownDevices, topology, updateDevice, setBinding, clearBindings, refreshTopology, backupMapSettings, restoreMapSettings, updater.state, updater.checkNow, saveSettings])
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">
@@ -257,7 +325,7 @@ export default function App(): React.JSX.Element {
         <div className="flex min-w-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-5">
           <Header
             interfaceCount={interfaces.length}
-            onlineCount={hosts.filter((h) => h.status === 'online').length}
+            onlineCount={effectiveHosts.filter((h) => h.status === 'online').length}
             refreshing={refreshing}
             onRefresh={() => void refreshInterfaces()}
           />

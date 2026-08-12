@@ -5,6 +5,19 @@
 
 import type { DeviceTypeId } from '../../shared/types'
 
+/** Normalizes a MAC to uppercase, separator-free form (aa:bb:… → AABBCCDDEEFF). */
+export function normalizeMac(mac: string): string {
+  return mac.replace(/[^0-9a-fA-F]/g, '').toUpperCase()
+}
+
+/**
+ * Stable identity for a host in topology bindings: the normalized MAC when
+ * known, otherwise the IP (same convention as device profiles).
+ */
+export function deviceKey(mac: string | null, ip: string): string {
+  return mac ? normalizeMac(mac) : ip
+}
+
 /** Human-readable labels for each device type classification. */
 export const DEVICE_TYPE_META: Record<DeviceTypeId, { label: string }> = {
   router: { label: 'Router' },

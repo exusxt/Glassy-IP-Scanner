@@ -10,12 +10,15 @@ import type {
   HistoryDiff,
   HistoryEntry,
   KnownDevice,
+  MapBackupResult,
+  MapRestoreResult,
   MonitorEvent,
   NetworkInterface,
   PortScanOptions,
   ScanEvent,
   ScanOptions,
   ScanState,
+  TopologyData,
   UpdateState
 } from '../shared/types'
 
@@ -47,6 +50,17 @@ const api = {
   // Device monitoring (Phase 3): known-device ledger + new/online/offline alerts.
   getMonitorEvents: (): Promise<MonitorEvent[]> => ipcRenderer.invoke('monitor:events'),
   getKnownDevices: (): Promise<KnownDevice[]> => ipcRenderer.invoke('monitor:devices'),
+
+  // Switch-aware topology (Phase 3): manual bindings + SNMP MAC tables.
+  getTopology: (): Promise<TopologyData> => ipcRenderer.invoke('topology:get'),
+  setTopologyBinding: (key: string, switchIp: string | null): Promise<TopologyData> =>
+    ipcRenderer.invoke('topology:setBinding', key, switchIp),
+  clearTopologyBindings: (): Promise<TopologyData> => ipcRenderer.invoke('topology:clear'),
+  refreshTopology: (switchIps: string[]): Promise<TopologyData> => ipcRenderer.invoke('topology:refresh', switchIps),
+
+  // Map settings backup / restore (device profiles + topology).
+  backupMapSettings: (): Promise<MapBackupResult> => ipcRenderer.invoke('map:backup'),
+  restoreMapSettings: (): Promise<MapRestoreResult> => ipcRenderer.invoke('map:restore'),
 
   // App + window helpers.
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
@@ -85,6 +99,11 @@ const api = {
     const listener = (_e: IpcRendererEvent, ev: MonitorEvent): void => cb(ev)
     ipcRenderer.on('monitor:event', listener)
     return () => ipcRenderer.removeListener('monitor:event', listener)
+  },
+  onTopologyUpdated: (cb: (data: TopologyData) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, data: TopologyData): void => cb(data)
+    ipcRenderer.on('topology:updated', listener)
+    return () => ipcRenderer.removeListener('topology:updated', listener)
   }
 }
 

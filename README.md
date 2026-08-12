@@ -50,7 +50,7 @@ Use multiple discovery techniques to improve device detection:
 * ✅ DNS resolution
 * 🟡 mDNS / Bonjour (hostname resolution only)
 * 🟡 NetBIOS discovery (hostname resolution only)
-* ❌ SNMP support
+* 🟡 SNMP support (switch MAC-table discovery over SNMPv2c for map topology)
 * ❌ IPv6 Neighbor Discovery
 
 The scanner should intelligently select appropriate discovery methods depending on the network and platform. 🟡 (methods are user-selected)
@@ -123,12 +123,15 @@ Provide a clean overview of the network.
 Visualize discovered devices instead of displaying only a table.
 
 * ✅ Router/gateway detection
-* 🟡 Device relationships (star topology from the gateway; no switch-link detection)
-* 🟡 Network topology (radial LAN map, single hop)
-* 🟡 Device grouping (colored and grouped by device type)
+* ✅ Device relationships (switch-link detection via SNMP MAC tables + manual device→switch bindings)
+* ✅ Network topology (multi-hop radial tree; cascaded switches and virtual switches render correctly)
+* ✅ Device grouping (colored and grouped by device type)
 * ✅ Interactive network graph
 * ✅ Zoom and pan
 * ✅ Device details on selection
+* ✅ Offline devices (previously-detected devices shown dimmed with a dashed outline)
+* ✅ Export as SVG (vector) or PNG (1024 / 2048 / 4096 px)
+* ✅ Backup/restore of map settings (bindings + cached SNMP tables, as versioned JSON)
 
 ### 🔔 Device Monitoring
 
@@ -138,6 +141,7 @@ Turn Glassy IP Scanner into a lightweight network monitoring tool.
 * ✅ Device online/offline detection (per-scan reconciliation)
 * ✅ New-device notifications
 * ✅ Device disappearance alerts
+* ✅ Offline persistence (previously-detected devices keep showing up marked offline when they don't answer a scan)
 * ❌ Configurable scan intervals
 * 🟡 Availability history (first/last-seen ledger; per-scan snapshots in scan history)
 * ❌ Response-time history
@@ -170,8 +174,10 @@ Make results easy to share.
 
 Supported formats:
 
+* ✅ Network map as PNG (1024 / 2048 / 4096 px)
+* ✅ Network map as SVG (vector)
 * ❌ CSV
-* ❌ JSON
+* ❌ JSON (scan results)
 * ❌ XML
 * ❌ HTML
 * ❌ Markdown
@@ -179,6 +185,7 @@ Supported formats:
 
 Allow users to export:
 
+* ✅ Network map (current topology)
 * ❌ Complete scan results
 * ❌ Selected devices
 * ❌ Port information
@@ -266,6 +273,8 @@ A polished interface can be one of Glassy's biggest advantages.
 
 # 🚀 Planned Features
 
+> **Checkbox icons:** `[x]` fully implemented · `[~]` partially implemented · `[ ]` not implemented yet
+
 ### Phase 1 — Core Scanner
 
 * [x] Local network detection
@@ -303,9 +312,9 @@ A polished interface can be one of Glassy's biggest advantages.
 
 * [ ] IPv6 support
 * [ ] UDP scanning
-* [ ] SNMP discovery
-* [ ] mDNS discovery
-* [ ] NetBIOS discovery
+* [~] SNMP discovery (switch MAC-table discovery over SNMPv2c for map topology)
+* [~] mDNS discovery (hostname resolution only)
+* [~] NetBIOS discovery (hostname resolution only)
 * [ ] OS fingerprinting
 * [ ] Service fingerprinting
 * [ ] Custom discovery plugins
