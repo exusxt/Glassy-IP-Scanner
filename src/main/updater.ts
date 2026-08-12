@@ -11,8 +11,9 @@
 
 import { app, BrowserWindow, ipcMain, net } from 'electron'
 import { autoUpdater, type UpdateInfo } from 'electron-updater'
-import { createWriteStream, existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { createWriteStream, existsSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
+import * as https from 'node:https'
 import { join } from 'node:path'
 import type { AppSettings, UpdateState } from '../shared/types'
 import { appVersion } from './app-version'
@@ -46,17 +47,49 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err)
 }
 
-/** Reads the owner/repo of the GitHub feed from the generated app-update.yml. */
-function publishRepo(): { owner: string; repo: string } | null {
-  try {
-    const text = readFileSync(join(process.resourcesPath, 'app-update.yml'), 'utf8')
-    const owner = /(?:^|\n)\s*owner:\s*(\S+)/.exec(text)?.[1]
-    const repo = /(?:^|\n)\s*repo:\s*(\S+)/.exec(text)?.[1]
-    if (owner && repo) return { owner, repo }
-  } catch {
-    // fall through
-  }
-  return null
+/** GitHub repo hosting the release feed (kept in sync with electron-builder.yml). */
+const APP_REPO = 'exusxt/Glassy-IP-Scanner'
+
+/**
+ * Follows redirects and returns the final URL of a successful HEAD request, or
+ * null when the target is not reachable. Used against the github.com web
+ * endpoints, which are not subject to the API rate limit.
+ */
+function webHeadRedirect(url: string, redirectsLeft = 5): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, { method: 'HEAD', headers: { 'User-Agent': 'Glassy-IP-Scanner' } }, (res) => {
+      if (
+        res.statusCode &&
+        res.statusCode >= 300 &&
+        res.statusCode < 400 &&
+        res.headers.location &&
+        redirectsLeft > 0
+      ) {
+        res.resume()
+        const next = new URL(res.headers.location, url).toString()
+        webHeadRedirect(next, redirectsLeft - 1).then(resolve, reject)
+        return
+      }
+      res.resume()
+      resolve(res.statusCode === 200 ? url : null)
+    })
+    req.on('error', reject)
+    req.setTimeout(30000, () => req.destroy(new Error('Request timed out')))
+    req.end()
+  })
+}
+
+/**
+ * Resolves the version tag behind a github.com /releases/latest redirect (e.g.
+ * .../tag/v1.2.3). Unlike the API this web endpoint has no rate limit, and no
+ * per-asset data is needed — just the tag.
+ */
+async function webLatestTag(ownerRepo: string): Promise<string | null> {
+  const [owner, repo] = ownerRepo.split('/')
+  const finalUrl = await webHeadRedirect(`https://github.com/${owner}/${repo}/releases/latest`)
+  if (!finalUrl) return null
+  const match = finalUrl.match(/\/releases\/tag\/([^/?#]+)$/)
+  return match ? match[1] : null
 }
 
 function semverGt(a: string, b: string): boolean {
@@ -73,27 +106,12 @@ function semverGt(a: string, b: string): boolean {
 async function checkPortable(): Promise<void> {
   setPhase('checking')
   try {
-    const cfg = publishRepo()
-    if (!cfg) throw new Error('update feed not configured')
-    // Read the latest release tag from the Atom feed instead of the GitHub API:
-    // the web endpoints have no unauthenticated rate limit, so frequent checks
-    // never start failing on shared IPs. (The /releases/latest redirect cannot
-    // be used here: Electron's net.fetch does not expose the redirect target.)
-    const res = await net.fetch(`https://github.com/${cfg.owner}/${cfg.repo}/releases.atom`, {
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Glassy-IP-Scanner' }
-    })
-    if (!res.ok) throw new Error(`update check failed (HTTP ${res.status})`)
-    const feed = await res.text()
-    // The Atom feed lists published releases newest-first; pick the highest
-    // tag so an out-of-order publish can never offer a downgrade.
-    let tag = ''
-    const re = /<entry>[\s\S]*?<title>\s*([^<]+?)\s*<\/title>/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(feed)) !== null) {
-      const t = m[1].trim()
-      if (semverGt(t, tag)) tag = t
-    }
+    // Resolve the latest tag through the github.com /releases/latest web
+    // redirect instead of the GitHub API: the web endpoints have no
+    // unauthenticated rate limit, so frequent checks never start failing on
+    // shared IPs. (Electron's net.fetch does not expose the redirect target,
+    // so the HEAD follow is done manually with node:https.)
+    const tag = await webLatestTag(APP_REPO)
     if (!tag || !semverGt(tag, appVersion())) {
       setPhase('not-available')
       return
@@ -107,7 +125,7 @@ async function checkPortable(): Promise<void> {
     const version = tag.replace(/^v/i, '')
     const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
     const name = `Glassy-IP-Scanner-${version}-${arch}.exe`
-    const url = `https://github.com/${cfg.owner}/${cfg.repo}/releases/latest/download/${name}`
+    const url = `https://github.com/${APP_REPO}/releases/latest/download/${name}`
     portableTarget = { version: tag, url }
     setPhase('available', { version: tag, progress: 0 })
     if (state.autoUpdate) {
