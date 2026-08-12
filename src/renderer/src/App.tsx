@@ -113,6 +113,50 @@ export default function App(): React.JSX.Element {
     window.alert(`Settings restored from:\n${res.path}\n\n${res.devicesCount} device profile(s) · ${res.bindingsCount} connection(s)`)
   }, [])
 
+  const backupAllData = useCallback(async (): Promise<void> => {
+    const res = await window.api.backupAllData().catch(() => null)
+    if (!res) {
+      window.alert('Could not create the backup.')
+      return
+    }
+    if (!res.ok) {
+      if (res.error && !res.cancelled) window.alert(res.error)
+      return
+    }
+    const c = res.counts
+    window.alert(
+      `Backup saved to:\n${res.path}\n\n` +
+        `${c?.devices ?? 0} device profile(s) · ${c?.bindings ?? 0} connection(s) · ` +
+        `${c?.switchTables ?? 0} switch table(s) · ${c?.knownDevices ?? 0} known device(s) · ${c?.historyEntries ?? 0} scan(s)`
+    )
+  }, [])
+
+  const restoreAllData = useCallback(async (): Promise<void> => {
+    if (!window.confirm('Restore this backup? It replaces ALL local data — device profiles, map connections, the known-device ledger, scan history and app settings. This cannot be undone.')) {
+      return
+    }
+    const res = await window.api.restoreAllData().catch(() => null)
+    if (!res) {
+      window.alert('Could not restore the backup.')
+      return
+    }
+    if (!res.ok) {
+      if (res.error && !res.cancelled) window.alert(res.error)
+      return
+    }
+    if (res.settings) setSettings(res.settings)
+    if (res.devices) setDevices(res.devices)
+    if (res.topology) setTopology(res.topology)
+    if (res.knownDevices) setKnownDevices(res.knownDevices)
+    if (res.monitorEvents) setMonitorEvents(res.monitorEvents)
+    const c = res.counts
+    window.alert(
+      `Backup restored from:\n${res.path}\n\n` +
+        `${c?.devices ?? 0} device profile(s) · ${c?.bindings ?? 0} connection(s) · ` +
+        `${c?.knownDevices ?? 0} known device(s) · ${c?.historyEntries ?? 0} scan(s)`
+    )
+  }, [])
+
   // Hosts with each device's manual type override applied, so a corrected
   // classification (e.g. a Netgear switch read as a router) shows everywhere:
   // table, icons, filters, colors and the network map.
@@ -293,10 +337,12 @@ export default function App(): React.JSX.Element {
             onClearSkip={() => saveSettings({ skipUpdateVersion: null })}
             updateState={updater.state}
             onCheckNow={() => void updater.checkNow()}
+            onBackupAllData={() => void backupAllData()}
+            onRestoreAllData={() => void restoreAllData()}
           />
         )
     }
-  }, [screen, interfaces, effectiveHosts, summary, status, progress, logs, version, settings, devices, monitorEvents, knownDevices, topology, updateDevice, setBinding, clearBindings, refreshTopology, backupMapSettings, restoreMapSettings, updater.state, updater.checkNow, saveSettings])
+  }, [screen, interfaces, effectiveHosts, summary, status, progress, logs, version, settings, devices, monitorEvents, knownDevices, topology, updateDevice, setBinding, clearBindings, refreshTopology, backupMapSettings, restoreMapSettings, backupAllData, restoreAllData, updater.state, updater.checkNow, saveSettings])
 
   return (
     <div className="relative flex h-screen flex-col overflow-hidden">

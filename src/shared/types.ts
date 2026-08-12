@@ -320,3 +320,52 @@ export interface MapRestoreResult {
   devicesCount: number
   bindingsCount: number
 }
+
+// ---------------------------------------------------------------------------
+// Full data backup / restore (Settings screen)
+// ---------------------------------------------------------------------------
+
+/** What a full backup contains, so the Settings screen can report it. */
+export interface DataBackupCounts {
+  devices: number
+  bindings: number
+  switchTables: number
+  knownDevices: number
+  historyEntries: number
+}
+
+/** Result of backing up ALL local data (settings + profiles + topology + ledger + history). */
+export interface DataBackupResult {
+  ok: boolean
+  /** True when the user cancelled the save dialog. */
+  cancelled?: boolean
+  /** Path the backup was written to (null when cancelled/failed). */
+  path: string | null
+  /** Human-readable error message when the backup failed. */
+  error?: string
+  /** Item counts included in the backup. */
+  counts?: DataBackupCounts
+}
+
+/** Result of restoring ALL local data from a backup file. */
+export interface DataRestoreResult {
+  ok: boolean
+  /** True when the user cancelled the open dialog. */
+  cancelled?: boolean
+  /** Path the backup was read from (null when cancelled/failed). */
+  path: string | null
+  /** Human-readable error message when the restore failed. */
+  error?: string
+  /** Restored app settings, so the renderer can refresh its state. */
+  settings?: AppSettings
+  /** Restored device profiles, so the renderer can refresh its state. */
+  devices?: DeviceProfiles
+  /** Restored topology, so the renderer can refresh its state. */
+  topology?: TopologyData
+  /** Restored monitoring ledger, so the renderer can refresh its state. */
+  knownDevices?: KnownDevice[]
+  /** Alert history after the restore (cleared), for the renderer feed. */
+  monitorEvents?: MonitorEvent[]
+  /** Item counts restored from the backup. */
+  counts?: DataBackupCounts
+}

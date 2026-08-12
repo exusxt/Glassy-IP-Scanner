@@ -5,6 +5,8 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import type {
   AppSettings,
+  DataBackupResult,
+  DataRestoreResult,
   DeviceProfile,
   DeviceProfiles,
   HistoryDiff,
@@ -61,6 +63,10 @@ const api = {
   // Map settings backup / restore (device profiles + topology).
   backupMapSettings: (): Promise<MapBackupResult> => ipcRenderer.invoke('map:backup'),
   restoreMapSettings: (): Promise<MapRestoreResult> => ipcRenderer.invoke('map:restore'),
+
+  // Full data backup / restore (all local stores, via file dialog).
+  backupAllData: (): Promise<DataBackupResult> => ipcRenderer.invoke('data:backup'),
+  restoreAllData: (): Promise<DataRestoreResult> => ipcRenderer.invoke('data:restore'),
 
   // App + window helpers.
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),

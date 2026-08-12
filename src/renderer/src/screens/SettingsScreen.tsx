@@ -1,9 +1,11 @@
 /**
- * Settings screen: currently hosts the update preferences — an opt-in
- * "Automatic updates" toggle (off by default; every update asks first) plus a
- * manual check button and current update status.
+ * Settings screen: hosts the update preferences — an opt-in "Automatic
+ * updates" toggle (off by default; every update asks first) plus a manual
+ * check button and current update status — and a Backup & Restore area that
+ * writes or reads a single JSON file holding every local store (app settings,
+ * device profiles, map topology, the monitoring ledger and scan history).
  */
-import { RefreshCw, Settings2, Undo2 } from 'lucide-react'
+import { Archive, RefreshCw, Settings2, Undo2, Upload } from 'lucide-react'
 import type { UpdateState } from '../../../shared/types'
 import { Badge, Button, Checkbox, Panel } from '../components/ui'
 
@@ -33,7 +35,9 @@ export function SettingsScreen({
   skipVersion,
   onClearSkip,
   updateState,
-  onCheckNow
+  onCheckNow,
+  onBackupAllData,
+  onRestoreAllData
 }: {
   version: string
   autoUpdate: boolean
@@ -42,6 +46,8 @@ export function SettingsScreen({
   onClearSkip: () => void
   updateState: UpdateState
   onCheckNow: () => void
+  onBackupAllData: () => void
+  onRestoreAllData: () => void
 }): React.JSX.Element {
   const status = statusLabel(updateState)
   const busy = updateState.phase === 'checking' || updateState.phase === 'downloading'
@@ -89,6 +95,35 @@ export function SettingsScreen({
               </Button>
             </div>
           ) : null}
+        </div>
+      </Panel>
+
+      <Panel>
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-glassy-text">Backup &amp; Restore</h3>
+          <p className="mt-0.5 text-xs text-glassy-muted">
+            Write all locally stored data to a single JSON file, or restore it on this machine — or any other.
+          </p>
+        </div>
+
+        <div className="mb-3 flex flex-wrap gap-3">
+          <Button variant="outline" onClick={onBackupAllData}>
+            <Archive className="h-4 w-4" /> Back up all data
+          </Button>
+          <Button variant="outline" onClick={onRestoreAllData}>
+            <Upload className="h-4 w-4" /> Restore from backup
+          </Button>
+        </div>
+
+        <div className="rounded-xl border border-glassy-border bg-glassy-panel/60 p-3">
+          <p className="text-[11px] text-glassy-muted">A backup includes:</p>
+          <ul className="mt-1 list-inside list-disc space-y-0.5 text-[11px] text-glassy-muted">
+            <li>App settings (automatic-update preference)</li>
+            <li>Device profiles (custom names, notes, tags, favorites, type overrides)</li>
+            <li>Map connections and cached SNMP switch tables</li>
+            <li>Known-device ledger (first/last-seen history)</li>
+            <li>Scan history</li>
+          </ul>
         </div>
       </Panel>
     </div>

@@ -192,6 +192,15 @@ Allow users to export:
 * ❌ Device history
 * ❌ Network summaries
 
+### 💾 Backup & Restore
+
+Move your data between machines, or keep a safety copy.
+
+* ✅ Full data backup (single JSON file with app settings, device profiles, map topology, the known-device ledger and scan history)
+* ✅ Full data restore (replaces every local store; accepts legacy map-only backups too)
+* ✅ Map-only backup/restore (from the Network Map screen)
+* ✅ Versioned backup format (future format changes are detected cleanly, not misinterpreted)
+
 ### 🔍 Powerful Search & Filtering
 
 Quickly find exactly what you're looking for.

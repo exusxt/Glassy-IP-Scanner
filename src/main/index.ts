@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { DeviceProfile, HostResult, PortScanOptions, ScanEvent, ScanOptions, ScanState } from '../shared/types'
 import { appVersion } from './app-version'
-import { backupMapSettings, restoreMapSettings } from './backup'
+import { backupAllData, backupMapSettings, restoreAllData, restoreMapSettings } from './backup'
 import { getDevices, setDeviceProfile } from './devices'
 import { clearHistory, diffScans, getHistory, recordScan as recordScanHistory } from './history'
 import { getKnownDevices, getKnownHosts, getMonitorEvents, recordScan as recordScanMonitor } from './monitor'
@@ -17,7 +17,7 @@ import {
   refreshSwitchTables,
   setTopologyBinding
 } from './topology'
-import { initUpdater } from './updater'
+import { initUpdater, syncUpdaterSettings } from './updater'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -159,6 +159,14 @@ function registerIpc(): void {
   // Map settings backup / restore (device profiles + topology, via file dialog).
   ipcMain.handle('map:backup', () => backupMapSettings(mainWindow))
   ipcMain.handle('map:restore', () => restoreMapSettings(mainWindow))
+
+  // Full data backup / restore (settings, profiles, topology, ledger, history).
+  ipcMain.handle('data:backup', () => backupAllData(mainWindow))
+  ipcMain.handle('data:restore', () => {
+    const result = restoreAllData(mainWindow)
+    syncUpdaterSettings()
+    return result
+  })
 
   // App + window helpers.
   ipcMain.handle('app:getVersion', () => appVersion())

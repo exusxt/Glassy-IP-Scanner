@@ -86,6 +86,12 @@ export function clearHistory(): void {
   persist()
 }
 
+/** Replaces the stored history wholesale (backup restore), capped like writes. */
+export function replaceHistory(entries: HistoryEntry[]): void {
+  cache = Array.isArray(entries) ? entries.slice(0, MAX_ENTRIES) : []
+  persist()
+}
+
 /** Compares two history entries by device identity; null if either id is unknown. */
 export function diffScans(aId: string, bId: string): HistoryDiff | null {
   const list = load()

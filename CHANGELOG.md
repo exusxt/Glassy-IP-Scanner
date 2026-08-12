@@ -5,6 +5,12 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] - 2026-08-12
+
+### Added
+
+- Full data backup & restore: the Settings screen can now write every locally stored store (app settings, device profiles, map topology, the known-device monitoring ledger and the scan history) to a single versioned JSON file and restore it later or on another machine. Restore accepts the older map-only backups too, and the updater honors a restored automatic-update preference immediately.
+
 ## [v0.3.0] - 2026-08-12
 
 ### Added

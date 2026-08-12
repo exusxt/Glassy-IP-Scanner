@@ -228,6 +228,12 @@ async function downloadUpdate(): Promise<void> {
   }
 }
 
+/** Re-reads settings after a full-data backup restore so the updater honors them. */
+export function syncUpdaterSettings(): void {
+  state = { ...state, autoUpdate: getSettings().autoUpdate }
+  pushState()
+}
+
 export function initUpdater(win: BrowserWindow): void {
   mainWindow = win
 

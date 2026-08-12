@@ -160,3 +160,18 @@ export function resetLedger(): void {
   events = []
   persistLedger()
 }
+
+/** Raw ledger entries keyed by MAC (else IP), for full-data backups. */
+export function getLedgerData(): Record<string, KnownDevice> {
+  return Object.fromEntries(loadLedger())
+}
+
+/** Replaces the ledger wholesale (backup restore); clears buffered alerts. */
+export function replaceLedger(entries: Record<string, KnownDevice>): void {
+  ledger = new Map()
+  for (const [key, value] of Object.entries(entries)) {
+    if (value && typeof value === 'object') ledger.set(key, value)
+  }
+  events = []
+  persistLedger()
+}
