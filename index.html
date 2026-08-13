@@ -1,115 +1,441 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Glassy IP Scanner — Discover your network. Understand your devices.</title>
-  <meta name="description" content="A modern, fast, and lightweight network discovery tool with a glassmorphic interface. Scan, visualize and understand the devices on your local network." />
-  <link rel="icon" href="https://raw.githubusercontent.com/exusxt/Glassy-IP-Scanner/main/build/icon.png" />
-  <style>
-    :root {
-      --bg: #0b1020;
-      --panel: rgba(255, 255, 255, 0.06);
-      --panel-border: rgba(255, 255, 255, 0.12);
-      --text: #e2e8f0;
-      --muted: #8b98b8;
-      --accent: #22d3ee;
-      --good: #34d399;
-      --radius: 16px;
-    }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-      background: radial-gradient(1200px 600px at 50% -10%, #16204a 0%, var(--bg) 55%) fixed;
-      color: var(--text);
-      line-height: 1.6;
-    }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
-    header { padding: 72px 0 40px; text-align: center; }
-    .logo { width: 96px; height: 96px; border-radius: 24px; box-shadow: 0 0 40px rgba(34, 211, 238, 0.35); }
-    h1 { margin-top: 22px; font-size: 2.5rem; font-weight: 700; letter-spacing: -0.02em; }
-    .tagline { margin-top: 10px; color: var(--muted); font-size: 1.1rem; }
-    .badges { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-    .badge {
-      font-size: 0.75rem; padding: 4px 10px; border-radius: 999px;
-      border: 1px solid var(--panel-border); background: var(--panel); color: var(--muted);
-    }
-    .cta { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
-    .btn {
-      display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px;
-      border-radius: 12px; font-weight: 600; text-decoration: none; font-size: 0.95rem;
-      border: 1px solid var(--panel-border); transition: transform 0.12s ease, box-shadow 0.12s ease;
-    }
-    .btn-primary { background: linear-gradient(135deg, #22d3ee, #38bdf8); color: #06222b; box-shadow: 0 8px 30px rgba(34, 211, 238, 0.35); }
-    .btn-ghost { background: var(--panel); color: var(--text); backdrop-filter: blur(10px); }
-    .btn:hover { transform: translateY(-1px); }
-    .btn-primary:hover { box-shadow: 0 10px 40px rgba(34, 211, 238, 0.45); }
-    section { padding: 40px 0; }
-    h2 { font-size: 1.5rem; font-weight: 650; margin-bottom: 18px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
-    .card {
-      background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius);
-      padding: 20px; backdrop-filter: blur(12px); transition: border-color 0.15s ease;
-    }
-    .card:hover { border-color: rgba(255, 255, 255, 0.25); }
-    .card h3 { font-size: 1rem; margin-bottom: 6px; }
-    .card h3 .ico { margin-right: 8px; }
-    .card p { color: var(--muted); font-size: 0.9rem; }
-    .links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 10px; }
-    .links a {
-      color: var(--accent); text-decoration: none; font-size: 0.9rem;
-      padding: 6px 14px; border: 1px solid rgba(34, 211, 238, 0.3); border-radius: 999px; background: rgba(34, 211, 238, 0.06);
-    }
-    .links a:hover { background: rgba(34, 211, 238, 0.14); }
-    .muted { color: var(--muted); font-size: 0.85rem; }
-    footer { padding: 40px 0 56px; text-align: center; }
-    footer .license { margin-top: 6px; font-size: 0.8rem; color: #55618a; }
-  </style>
-</head>
-<body>
-  <header>
-    <img class="logo" src="https://raw.githubusercontent.com/exusxt/Glassy-IP-Scanner/main/build/icon.png" alt="Glassy IP Scanner" />
-    <h1>Glassy IP Scanner</h1>
-    <p class="tagline">A modern, fast and lightweight network discovery tool with a glassmorphic interface.</p>
-    <div class="badges">
-      <span class="badge">Windows · macOS · Linux</span>
-      <span class="badge">Local-first · no account</span>
-      <span class="badge">Open source · MIT</span>
-      <span class="badge">IPv4 discovery · ICMP / ARP / TCP</span>
-    </div>
-    <div class="cta">
-      <a class="btn btn-primary" href="https://github.com/exusxt/Glassy-IP-Scanner/releases/latest">⬇ Download latest release</a>
-      <a class="btn btn-ghost" href="https://github.com/exusxt/Glassy-IP-Scanner">View on GitHub</a>
-    </div>
-  </header>
+<html lang="en" data-theme="gallery">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Glassy IP Scanner — Discover your network. Understand your devices.</title>
+    <meta
+      name="description"
+      content="Glassy IP Scanner is a free, open-source network discovery tool for Windows, macOS and Linux. Scan IP ranges and CIDR blocks with ICMP, ARP and TCP probes, then explore your devices — hostnames, vendors, open ports and an interactive network map — all locally, no account needed."
+    />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body class="gallery">
+    <div class="bg-photo"></div>
 
-  <section class="wrap">
-    <h2>What it does</h2>
-    <div class="grid">
-      <div class="card"><h3><span class="ico">🔎</span>Fast scanning</h3><p>Scan single IPs, ranges or CIDR blocks with configurable speed, pause/resume/cancel and real-time results.</p></div>
-      <div class="card"><h3><span class="ico">🧠</span>Device intelligence</h3><p>Hostnames, MAC vendors and device-type classification — plus custom names, notes, tags and favorites.</p></div>
-      <div class="card"><h3><span class="ico">🔌</span>Port scanner</h3><p>Built-in TCP port scanning with presets, custom ranges and service names for well-known ports.</p></div>
-      <div class="card"><h3><span class="ico">🗺️</span>Network map</h3><p>Interactive topology with the gateway at the center, SNMP switch detection, zoom/pan and image export.</p></div>
-      <div class="card"><h3><span class="ico">🔔</span>Monitoring</h3><p>A persistent known-device ledger raises new-device, back-online and went-offline alerts between scans.</p></div>
-      <div class="card"><h3><span class="ico">📜</span>Scan history</h3><p>Every scan is recorded; compare any two to see exactly what changed on your network.</p></div>
-      <div class="card"><h3><span class="ico">💾</span>Backup &amp; restore</h3><p>Export all local data (settings, profiles, map, ledger, history) to a single JSON file and move between machines.</p></div>
-      <div class="card"><h3><span class="ico">🔒</span>Privacy first</h3><p>No account, no cloud, no telemetry. All scanning and data storage happens on your machine.</p></div>
-    </div>
-  </section>
+    <nav class="nav">
+      <div class="wrap nav-inner">
+        <a class="brand" href="#top">
+          <img src="assets/icon.png" alt="Glassy IP Scanner icon" width="34" height="34" />
+          <span>
+            Glassy IP Scanner
+            <small>know what's on your network</small>
+          </span>
+        </a>
+        <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <ul class="nav-links" id="navLinks">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#themes">Themes</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li>
+            <a
+              class="btn btn-primary nav-cta"
+              href="https://github.com/exusxt/Glassy-IP-Scanner/releases"
+              target="_blank"
+              rel="noopener"
+            >Download</a>
+          </li>
+        </ul>
+      </div>
+    </nav>
 
-  <section class="wrap">
-    <h2>Learn more</h2>
-    <div class="links">
-      <a href="https://github.com/exusxt/Glassy-IP-Scanner/blob/main/README.md">README</a>
-      <a href="https://github.com/exusxt/Glassy-IP-Scanner/wiki">Wiki</a>
-      <a href="https://github.com/exusxt/Glassy-IP-Scanner/releases">Releases</a>
-      <a href="https://github.com/exusxt/Glassy-IP-Scanner/issues">Issues</a>
-    </div>
-  </section>
+    <main id="top">
+      <section class="hero">
+        <div class="wrap">
+          <span class="chip hero-badge">
+            <b>v0.5.1</b> · local-first · no account
+          </span>
+          <h1>
+            Discover your network.<br />
+            <span class="gradient-text">Understand your devices.</span>
+          </h1>
+          <p class="lede">
+            Scan single IPs, ranges or entire CIDR blocks with ICMP, ARP and TCP probes. See
+            hostnames, MAC vendors, open ports and a live network map — all stored on your machine.
+          </p>
+          <div class="hero-actions">
+            <a
+              class="btn btn-primary animate-glow"
+              href="https://github.com/exusxt/Glassy-IP-Scanner/releases"
+              target="_blank"
+              rel="noopener"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M12 15V3" />
+              </svg>
+              Download for free
+            </a>
+            <a
+              class="btn btn-ghost"
+              href="https://github.com/exusxt/Glassy-IP-Scanner/wiki"
+              target="_blank"
+              rel="noopener"
+            >
+              Read the wiki
+            </a>
+          </div>
+          <div class="hero-meta">
+            <span class="chip">Windows · macOS · Linux</span>
+            <span class="chip">IPv4 · ICMP / ARP / TCP</span>
+            <span class="chip">14 themes</span>
+            <span class="chip">MIT licensed</span>
+          </div>
 
-  <footer>
-    <p class="muted">Discover your network. Understand your devices. Stay in control.</p>
-    <p class="license">© Glassy IP Scanner contributors · Released under the MIT License</p>
-  </footer>
-</body>
+          <div class="shot-card reveal">
+            <div class="win">
+              <div class="win-titlebar">
+                <span class="win-dot r"></span>
+                <span class="win-dot y"></span>
+                <span class="win-dot g"></span>
+                <span class="win-title">Glassy IP Scanner</span>
+              </div>
+              <div class="win-body">
+                <div class="win-toolbar">
+                  <span class="win-input">192.168.1.0/24</span>
+                  <button class="win-btn">Scan</button>
+                </div>
+                <table class="win-table">
+                  <thead>
+                    <tr>
+                      <th>IP</th>
+                      <th>Hostname</th>
+                      <th>Vendor</th>
+                      <th>Type</th>
+                      <th>Ports</th>
+                      <th>Latency</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="st-on"><span class="st-dot"></span><span class="dev">192.168.1.1</span></td>
+                      <td class="host">fritz.box</td>
+                      <td class="vendor">AVM</td>
+                      <td><span class="type-tag">router</span></td>
+                      <td class="host">80, 443, 53</td>
+                      <td class="host">2 ms</td>
+                    </tr>
+                    <tr>
+                      <td class="st-new"><span class="st-dot"></span><span class="dev">192.168.1.24</span></td>
+                      <td class="host">exus-nas-01</td>
+                      <td class="vendor">Synology</td>
+                      <td><span class="type-tag">nas</span></td>
+                      <td class="host">22, 5000, 5001</td>
+                      <td class="host">3 ms</td>
+                    </tr>
+                    <tr>
+                      <td class="st-on"><span class="st-dot"></span><span class="dev">192.168.1.37</span></td>
+                      <td class="host">iPhone-Exus</td>
+                      <td class="vendor">Apple</td>
+                      <td><span class="type-tag">phone</span></td>
+                      <td class="host">—</td>
+                      <td class="host">11 ms</td>
+                    </tr>
+                    <tr>
+                      <td class="st-on"><span class="st-dot"></span><span class="dev">192.168.1.62</span></td>
+                      <td class="host">PS5-2681A0</td>
+                      <td class="vendor">Sony</td>
+                      <td><span class="type-tag">console</span></td>
+                      <td class="host">9295</td>
+                      <td class="host">8 ms</td>
+                    </tr>
+                    <tr>
+                      <td class="st-off"><span class="st-dot"></span><span class="dev">192.168.1.88</span></td>
+                      <td class="host">printer-01</td>
+                      <td class="vendor">Brother</td>
+                      <td><span class="type-tag">printer</span></td>
+                      <td class="host">515, 631</td>
+                      <td class="host">offline</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div class="win-footer">
+                  <span>14 hosts online · <b>2 new</b> · 1 offline</span>
+                  <span>scan 4.2s · saved to history</span>
+                </div>
+              </div>
+            </div>
+            <span class="float-chip fc-1"><span class="dot"></span>2 new devices</span>
+            <span class="float-chip fc-2"><span class="dot"></span>14 hosts online</span>
+            <span class="float-chip fc-3"><span class="dot"></span>monitoring active</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="features">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <span class="kicker">What it does</span>
+            <h2>Everything you need to see your network</h2>
+            <p>From a single scan to continuous monitoring — one app covers the whole picture.</p>
+          </div>
+
+          <div class="features">
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 2a10 10 0 0 1 10 10" /><path d="M12 6a6 6 0 0 1 6 6" /><path d="M12 10a2 2 0 0 1 2 2" /></svg>
+              </div>
+              <h3>Fast scanning</h3>
+              <p>Scan single IPs, ranges or CIDR blocks with configurable speed, pause/resume/cancel and real-time results.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+              </div>
+              <h3>Device intelligence</h3>
+              <p>Hostnames, MAC vendors and device-type classification — plus custom names, notes, tags and favorites.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="M7 9h10M7 13h6" /></svg>
+              </div>
+              <h3>Port scanner</h3>
+              <p>Built-in TCP port scanning with presets, custom ranges and service names for well-known ports.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10" /><path d="M12 6a6 6 0 1 0 6 6" /><path d="M12 10a2 2 0 1 0 2 2" /></svg>
+              </div>
+              <h3>Network map</h3>
+              <p>Interactive topology with the gateway at the center, SNMP switch detection, zoom/pan and image export.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10" /><path d="M12 6a6 6 0 1 0 6 6" /><path d="M12 10a2 2 0 1 0 2 2" /></svg>
+              </div>
+              <h3>Monitoring</h3>
+              <p>A persistent known-device ledger raises new-device, back-online and went-offline alerts between scans.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3" /><circle cx="12" cy="12" r="10" /></svg>
+              </div>
+              <h3>Scan history</h3>
+              <p>Every scan is recorded; compare any two to see exactly what changed on your network.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="M7 10l5 5 5-5" /><path d="M12 15V3" /></svg>
+              </div>
+              <h3>Export results</h3>
+              <p>Write any scan's results — including known-but-offline devices — to CSV or JSON for further analysis.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.5-6.2 4.5 2.4-7.4L2 9.4h7.6z" /></svg>
+              </div>
+              <h3>Wake-on-LAN</h3>
+              <p>Power on offline devices that have a known MAC from their detail dialog — a single magic packet on the LAN.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><path d="M9 15l2 2 4-4" /></svg>
+              </div>
+              <h3>Offline persistence</h3>
+              <p>Known devices that go offline stay visible with their saved metadata instead of vanishing from the results.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /><path d="M12 13v-2" /></svg>
+              </div>
+              <h3>Smart classification</h3>
+              <p>Routers, NAS, consoles, phones, printers and smart devices detected from OUI vendors and hostname rules.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M12 11v6M9 14h6" /></svg>
+              </div>
+              <h3>Backup &amp; restore</h3>
+              <p>Export all local data — settings, profiles, map, ledger, history — to a single JSON file and move between machines.</p>
+            </div>
+            <div class="feature reveal">
+              <div class="icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>
+              </div>
+              <h3>Privacy first</h3>
+              <p>No account, no cloud, no telemetry. All scanning and data storage happens on your machine.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <span class="kicker">Three steps</span>
+            <h2>How it works</h2>
+            <p>Pick a target, scan, and explore — everything happens on your machine.</p>
+          </div>
+          <div class="steps">
+            <div class="step reveal">
+              <h3>1 — Choose targets</h3>
+              <p>Enter a single IP, a range like 192.168.1.10–192.168.1.50, or a CIDR block like 192.168.1.0/24, and tune the scan speed.</p>
+            </div>
+            <div class="step reveal">
+              <h3>2 — Scan &amp; probe</h3>
+              <p>Devices respond to ICMP echo, ARP discovery and TCP probes. Results stream in live, with latency and open ports.</p>
+            </div>
+            <div class="step reveal">
+              <h3>3 — Understand &amp; act</h3>
+              <p>Dig into each device's detail dialog, explore the network map, export the results, or keep watching with monitoring.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="themes">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <span class="kicker">Make it yours</span>
+            <h2>Fourteen themes, just like the app</h2>
+            <p>Pick a theme here to preview the same Gallery Glass family, solid palettes and light mode the app ships with.</p>
+          </div>
+          <div class="theme-grid" id="themeGrid"></div>
+        </div>
+      </section>
+
+      <section id="platforms">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <span class="kicker">Cross-platform</span>
+            <h2>Runs where you do</h2>
+          </div>
+          <div class="os-grid">
+            <div class="os reveal">
+              <h3>Windows</h3>
+              <ul>
+                <li>Installer and portable builds</li>
+                <li>x64 &amp; ARM64</li>
+                <li>Auto-updates, self-updating portable</li>
+              </ul>
+            </div>
+            <div class="os reveal">
+              <h3>macOS</h3>
+              <ul>
+                <li>DMG and ZIP builds</li>
+                <li>Intel &amp; Apple Silicon</li>
+                <li>Signed &amp; notarized releases</li>
+              </ul>
+            </div>
+            <div class="os reveal">
+              <h3>Linux</h3>
+              <ul>
+                <li>AppImage, deb, rpm and pacman packages</li>
+                <li>x64 &amp; ARM64</li>
+                <li>Runs on most modern distros</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="faq">
+        <div class="wrap">
+          <div class="section-head reveal">
+            <span class="kicker">Good to know</span>
+            <h2>Frequently asked questions</h2>
+          </div>
+          <div class="faq">
+            <div class="faq-item reveal">
+              <button class="faq-q" aria-expanded="false">
+                Does it need an account or cloud connection?
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              <div class="faq-a"><div class="faq-a-inner">
+                No. Everything — scanning, the network map, the monitoring ledger and scan history — runs locally on your machine. No account, no cloud, no telemetry.
+              </div></div>
+            </div>
+            <div class="faq-item reveal">
+              <button class="faq-q" aria-expanded="false">
+                How does it detect devices on my network?
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              <div class="faq-a"><div class="faq-a-inner">
+                It combines <code>ICMP</code> echo (ping), <code>ARP</code> discovery for local MAC addresses and <code>TCP</code> probes for ports. A device counts as online only via a real probe response — stale ARP entries are never treated as liveness.
+              </div></div>
+            </div>
+            <div class="faq-item reveal">
+              <button class="faq-q" aria-expanded="false">
+                Why might some devices show as unknown?
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              <div class="faq-a"><div class="faq-a-inner">
+                Hosts that ignore ping show up via ARP but without a hostname, and some vendors' MAC OUIs aren't in the built-in database. You can always rename and tag them yourself, and the classification learns from common hostname patterns.
+              </div></div>
+            </div>
+            <div class="faq-item reveal">
+              <button class="faq-q" aria-expanded="false">
+                What is device monitoring?
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              <div class="faq-a"><div class="faq-a-inner">
+                A persistent ledger remembers every device the scanner has ever seen. Across scans it raises alerts when a device is new, comes back online, or goes offline — so changes on your network never go unnoticed.
+              </div></div>
+            </div>
+            <div class="faq-item reveal">
+              <button class="faq-q" aria-expanded="false">
+                Do I need administrator privileges?
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              <div class="faq-a"><div class="faq-a-inner">
+                Basic ICMP and TCP scanning works without elevation. ARP discovery and some OS-level probes on Windows and Linux may require administrator/root rights — the app tells you when it needs them.
+              </div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="wrap">
+          <div class="cta reveal">
+            <h2>Ready to see what's on your network?</h2>
+            <p>
+              Grab the latest release for your operating system and run your first scan in under a minute.
+            </p>
+            <a
+              class="btn btn-primary animate-glow"
+              href="https://github.com/exusxt/Glassy-IP-Scanner/releases"
+              target="_blank"
+              rel="noopener"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <path d="M7 10l5 5 5-5" />
+                <path d="M12 15V3" />
+              </svg>
+              Get Glassy IP Scanner
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap footer-inner">
+        <ul class="footer-links">
+          <li><a href="https://github.com/exusxt/Glassy-IP-Scanner" target="_blank" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/exusxt/Glassy-IP-Scanner/wiki" target="_blank" rel="noopener">Wiki</a></li>
+          <li><a href="https://github.com/exusxt/Glassy-IP-Scanner/releases" target="_blank" rel="noopener">Releases</a></li>
+          <li><a href="https://github.com/exusxt/Glassy-IP-Scanner/blob/main/CHANGELOG.md" target="_blank" rel="noopener">Changelog</a></li>
+          <li><a href="https://github.com/exusxt/Glassy-IP-Scanner/blob/main/LICENSE" target="_blank" rel="noopener">License</a></li>
+        </ul>
+        <span class="legal">Glassy IP Scanner — free &amp; open-source · MIT</span>
+      </div>
+    </footer>
+
+    <script src="assets/app.js"></script>
+  </body>
 </html>
