@@ -490,7 +490,11 @@ function mDnsReverse(ip: string, timeoutMs: number, signal: AbortSignal): Promis
   })
 }
 
-/** Fresh ARP lookup for one address; used after a probe reveals a new host. */
+/**
+ * Returns the MAC of `ip` from the system ARP cache, without judging
+ * freshness. Used to enrich already-online hosts with a MAC that was not in
+ * the pre-scan snapshot.
+ */
 async function arpLookup(ip: string): Promise<string | null> {
   if (process.platform === 'win32') {
     const out = await runCmd('arp', ['-a', ip], 3000)
@@ -503,6 +507,44 @@ async function arpLookup(ip: string): Promise<string | null> {
     return m ? m[1].toLowerCase() : null
   }
   if (process.platform === 'darwin') {
+    const out = await runCmd('arp', ['-n', ip], 3000)
+    const m = /(?:at\s+)?([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})/.exec(out)
+    return m ? m[1] : null
+  }
+  return null
+}
+
+/**
+ * Returns the MAC of `ip` only when the neighbor entry is *fresh* — the
+ * probes just above made the OS resolve the host's hardware address, and the
+ * neighbor state (Reachable/Delay/Probe on Windows, REACHABLE/DELAY/PROBE on
+ * Linux) proves the host answered our own ARP request. A stale leftover of a
+ * dead device never counts, even when the IP was already in the pre-scan
+ * snapshot.
+ */
+async function arpFreshLookup(ip: string): Promise<string | null> {
+  if (process.platform === 'win32') {
+    // Cheap native gate: only reach out to PowerShell when an entry exists.
+    const out = await runCmd('arp', ['-a', ip], 3000)
+    const m = /(\d{1,3}(?:\.\d{1,3}){3})\s+([0-9a-fA-F]{2}(?:[:-][0-9a-fA-F]{2}){5})/.exec(out)
+    if (!(m && m[1] === ip)) return null
+    // Get-NetNeighbor reports a locale-independent English `State`; only fresh
+    // states prove the host answered our probes (stale entries stay Stale).
+    const ps =
+      '(Get-NetNeighbor -IPAddress ' + ip + ' -AddressFamily IPv4 -ErrorAction SilentlyContinue | Where-Object { $_.State -in @(\'Reachable\',\'Delay\',\'Probe\') } | Select-Object -First 1).LinkLayerAddress'
+    const stOut = await runCmd('powershell', ['-NoProfile', '-NonInteractive', '-Command', ps], 5000)
+    const sm = /[0-9a-fA-F]{2}(?:[:-][0-9a-fA-F]{2}){5}/.exec(stOut)
+    return sm ? sm[0].toLowerCase() : null
+  }
+  if (process.platform === 'linux') {
+    const out = await runCmd('ip', ['-4', 'neigh', 'show', ip], 3000)
+    // Row format: "192.168.1.5 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE"
+    const m = /lladdr\s+([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})\s+(REACHABLE|DELAY|PROBE)\b/.exec(out)
+    return m ? m[1].toLowerCase() : null
+  }
+  if (process.platform === 'darwin') {
+    // macOS `arp -n` exposes no state; entries are short-lived, so presence is
+    // a reasonable liveness signal.
     const out = await runCmd('arp', ['-n', ip], 3000)
     const m = /(?:at\s+)?([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})/.exec(out)
     return m ? m[1] : null
@@ -827,7 +869,6 @@ export class ScanManager extends EventEmitter {
     // as a liveness signal, because ARP caches keep entries for devices that
     // have been offline for a long while (they'd otherwise surface as false
     // "online" results).
-    const hadArpBefore = opts.methods.arp ? this.arpTable.has(ip) : false
     let mac = opts.methods.arp ? this.arpTable.get(ip) ?? null : null
     if (!mac && this.localMacs.has(ip)) {
       mac = this.localMacs.get(ip) ?? null
@@ -858,12 +899,14 @@ export class ScanManager extends EventEmitter {
 
     // A host that is alive but drops ICMP and has no listening TCP ports can
     // still be found through a *fresh* ARP entry: the probes just above made
-    // the OS resolve the host's hardware address, so a brand-new entry proves
-    // it answered our own ARP request. This is only trustworthy when the IP
-    // was not already in the pre-scan snapshot — an entry that existed before
-    // could simply be a stale leftover of a dead device.
-    if (!online && opts.methods.arp && !hadArpBefore) {
-      const fresh = await arpLookup(ip)
+    // the OS resolve the host's hardware address, and the neighbor's current
+    // state (Reachable/Delay/Probe) proves it answered our own ARP request.
+    // This is checked for every non-responding host, including IPs that were
+    // already in the pre-scan snapshot — an entry that existed before is only
+    // a leftover if it is stale, and stale states never pass the freshness
+    // check above.
+    if (!online && opts.methods.arp) {
+      const fresh = await arpFreshLookup(ip)
       if (fresh) {
         mac = fresh
         via.push('arp')

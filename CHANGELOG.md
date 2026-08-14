@@ -5,6 +5,13 @@ All notable changes to Glassy IP Scanner.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.2] - 2026-08-14
+
+### Fixed
+
+- Scans could report fewer devices than expected (e.g. 57 instead of 60 on a busy /24): devices that are alive but drop ICMP and block the probed TCP ports (printers, TVs, smart-home and IoT gear) were only detected through a fresh ARP entry when their IP was not already in the pre-scan ARP snapshot. After the first scan the ARP cache stays warm, so on later scans those IPs were in the snapshot and the fresh-ARP check was skipped entirely. The check now runs for every non-responding host and verifies the neighbor entry's current state (Reachable/Delay/Probe on Windows, REACHABLE/DELAY/PROBE on Linux) instead of comparing against the snapshot, so stale leftovers of dead devices still never count as online while live ARP-responders are always found
+- Linux host detection no longer treats `STALE` neighbor entries as "fresh" — only REACHABLE/DELAY/PROBE states are accepted, matching the Windows behavior
+
 ## [v0.5.1] - 2026-08-12
 
 ### Fixed
