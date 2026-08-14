@@ -237,6 +237,10 @@ kbd,
   font-size: 13px;
   border-radius: 10px;
 }
+.nav-links .nav-cta,
+.nav-links .nav-cta:hover {
+  color: #04101a;
+}
 .nav-toggle {
   display: none;
   background: none;
